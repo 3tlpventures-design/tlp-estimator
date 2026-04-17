@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TLP Home Selection Estimator — v1.0</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Jost:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+:root{
+  --navy:#1B2A47;--navy2:#243558;--gold:#C8A951;--gold2:#E8C96A;--gold3:#a8893a;
+  --cream:#FAF8F4;--white:#FFFFFF;--g50:#F8F8F6;--g100:#F0EDE8;--g200:#E0DBD3;
+  --g300:#C5BDB3;--g400:#A09890;--g600:#6B6560;--g800:#2E2A26;
+  --green:#2D7D52;--greenl:#E8F5EE;--amber:#D97706;--amberl:#FEF3C7;
+  --red:#C0392B;--redl:#FEE2E2;
+  --t1:#94A3B8;--t2:#3B82F6;--t3:#10B981;--t4:#F59E0B;--t5:#8B5CF6;
+  --shadow:0 2px 12px rgba(0,0,0,.08);--shadow-lg:0 8px 32px rgba(0,0,0,.14);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;font-family:'Jost',sans-serif;background:var(--cream);color:var(--g800)}
+#root{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+#bbar{flex-shrink:0;background:var(--navy);height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;box-shadow:0 2px 20px rgba(0,0,0,.35);position:relative;z-index:100}
+.bb-brand{display:flex;align-items:center;gap:.75rem}
+.bb-logo{background:var(--gold);color:var(--navy);font-family:'Cormorant Garamond',serif;font-weight:700;font-size:14px;width:36px;height:36px;border-radius:4px;display:flex;align-items:center;justify-content:center}
+.bb-name{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:600;color:#fff;letter-spacing:.04em}
+.bb-sub{font-size:9px;color:var(--gold);letter-spacing:.14em;text-transform:uppercase}
+.bb-version{font-size:9px;color:rgba(200,169,81,.5);margin-top:1px}
+.bb-meters{display:flex;align-items:stretch;gap:1px}
+.bb-meter{padding:4px 18px;text-align:center;min-width:130px}
+.bb-mlbl{font-size:8px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:1px}
+.bb-mval{font-family:'JetBrains Mono',monospace;font-size:19px;color:#fff;font-weight:500}
+.bb-mval.green{color:#4ADE80}.bb-mval.gold{color:var(--gold2)}.bb-mval.red{color:#F87171}
+.bb-div{width:1px;background:rgba(255,255,255,.12);margin:10px 0}
+.bb-prog{height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin-top:3px;overflow:hidden}
+.bb-pf{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));border-radius:2px;transition:width .6s}
+.bb-right{display:flex;align-items:center;gap:.75rem}
+.bb-toggle{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);font-family:'Jost',sans-serif;font-size:11px;padding:5px 12px;border-radius:20px;cursor:pointer;transition:all .15s}
+.bb-toggle:hover{background:rgba(255,255,255,.18);color:#fff}
+.app-body{display:flex;flex:1;overflow:hidden}
+#sidebar{width:248px;min-width:248px;background:var(--navy2);overflow-y:auto;display:flex;flex-direction:column}
+.sb-section{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);padding:1.1rem 1.25rem .35rem;font-weight:600}
+.sb-item{display:flex;align-items:center;gap:.6rem;padding:.55rem 1.25rem;cursor:pointer;border-left:2px solid transparent;transition:all .12s}
+.sb-item:hover{background:rgba(255,255,255,.04)}
+.sb-item.active{background:rgba(200,169,81,.12);border-left-color:var(--gold)}
+.sb-icon{font-size:15px;width:22px;text-align:center;flex-shrink:0}
+.sb-lbl{font-size:12.5px;color:rgba(255,255,255,.65);flex:1;font-weight:400}
+.sb-item.active .sb-lbl{color:#fff;font-weight:500}
+.sb-cost{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold)}
+.sb-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.15);flex-shrink:0}
+.sb-dot.done{background:#4ADE80}.sb-dot.partial{background:var(--amber)}
+#main{flex:1;overflow-y:auto;padding:2rem 2.25rem;min-width:0}
+.alert-bar{padding:10px 16px;border-radius:8px;margin-bottom:1.25rem;font-size:13px;display:none;align-items:center;gap:.75rem}
+.alert-bar.show{display:flex}
+.alert-bar.warn{background:var(--amberl);color:#92400E;border:1px solid #FDE68A}
+.alert-bar.danger{background:var(--redl);color:#991B1B;border:1px solid #FECACA}
+.ph{margin-bottom:1.75rem}
+.ph-crumb{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--g400);margin-bottom:.35rem}
+.ph-title{font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:700;color:var(--navy);line-height:1.1}
+.ph-sub{font-size:13px;color:var(--g600);margin-top:.3rem;line-height:1.5}
+.ph-tag{display:inline-flex;align-items:center;gap:.4rem;margin-top:.5rem;background:var(--navy);color:var(--gold);padding:3px 11px;border-radius:20px;font-family:'JetBrains Mono',monospace;font-size:11px}
+.rtbar{background:var(--navy);border-radius:12px;padding:1rem 1.5rem;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--shadow-lg)}
+.rtbar-lbl{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);margin-bottom:2px}
+.rtbar-val{font-family:'JetBrains Mono',monospace;font-size:30px;color:#fff;font-weight:500}
+.rtbar-sf{font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--gold2)}
+.card{background:var(--white);border:1px solid var(--g200);border-radius:12px;margin-bottom:.875rem;overflow:hidden;transition:box-shadow .18s}
+.card:hover{box-shadow:var(--shadow)}
+.card-hd{display:flex;align-items:center;padding:.95rem 1.25rem;cursor:pointer;gap:.9rem;user-select:none}
+.card-hd:hover{background:#fafaf8}
+.card-icon{width:38px;height:38px;background:var(--g100);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.card-title{font-size:14px;font-weight:600;color:var(--navy)}
+.card-sub{font-size:11px;color:var(--g400);margin-top:1px}
+.card-right{display:flex;align-items:center;gap:.75rem;margin-left:auto}
+.card-amt{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:500;color:var(--navy)}
+.card-chev{font-size:11px;color:var(--g400);transition:transform .18s}
+.card.open .card-chev{transform:rotate(180deg)}
+.card-body{display:none;padding:1rem 1.25rem 1.25rem;border-top:1px solid var(--g100)}
+.card.open .card-body{display:block}
+.ibox{background:linear-gradient(135deg,#EEF2FF,#F0F9FF);border:1px solid #C7D2FE;border-radius:8px;padding:.8rem 1rem;margin-bottom:1.1rem;font-size:12px;color:#3730A3;line-height:1.65}
+.ibox.tlp{background:linear-gradient(135deg,#FFF7ED,#FFFBEB);border-color:#FDE68A;color:#92400E}
+.ts-wrap{margin:.9rem 0}
+.ts-lbl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--g600);font-weight:600;margin-bottom:.65rem}
+.ts-btns{display:flex;gap:.4rem}
+.tb{flex:1;padding:9px 5px;border:2px solid var(--g200);border-radius:8px;background:var(--white);cursor:pointer;text-align:center;transition:all .13s;font-family:'Jost',sans-serif}
+.tb:hover{border-color:var(--g300);background:var(--g50)}
+.tb.sel{background:var(--navy);border-color:var(--navy);box-shadow:0 2px 8px rgba(27,42,71,.25)}
+.tb-num{font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;display:block;color:var(--g400)}
+.tb.sel .tb-num{color:var(--gold)}
+.tb-name{font-size:10px;font-weight:600;display:block;color:var(--g800);margin-top:1px}
+.tb.sel .tb-name{color:#fff}
+.tb-price{font-family:'JetBrains Mono',monospace;font-size:12px;display:block;color:var(--navy);margin-top:2px}
+.tb.sel .tb-price{color:var(--gold2)}
+.t5-entry{background:linear-gradient(135deg,#FAF5FF,#F3E8FF);border:1px solid #DDD6FE;border-radius:8px;padding:1rem;margin-top:.75rem;display:none}
+.t5-entry.show{display:block}
+.frow{display:grid;gap:.9rem;margin:.9rem 0}
+.frow.c1{grid-template-columns:1fr}.frow.c2{grid-template-columns:1fr 1fr}
+.frow.c3{grid-template-columns:1fr 1fr 1fr}.frow.c4{grid-template-columns:1fr 1fr 1fr 1fr}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:10px;font-weight:600;color:var(--g600);letter-spacing:.06em;text-transform:uppercase}
+.field input,.field select,.field textarea{padding:8px 11px;border:1.5px solid var(--g200);border-radius:6px;font-family:'Jost',sans-serif;font-size:13px;color:var(--g800);background:var(--white);outline:none;transition:border-color .15s}
+.field input:focus,.field select:focus{border-color:var(--navy)}
+.field input[readonly]{background:var(--g50);color:var(--g600)}
+.fnote{font-size:10.5px;color:var(--g400);font-style:italic;margin-top:2px}
+.fauto{display:inline-flex;align-items:center;font-size:10px;padding:1px 7px;background:#EDE9FE;color:#7C3AED;border-radius:3px;font-weight:600;margin-right:3px}
+.cbox{background:var(--g50);border:1px solid var(--g200);border-radius:8px;padding:.9rem 1.1rem;margin-top:.9rem}
+.cbox-title{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--g600);font-weight:600;margin-bottom:.65rem}
+.cline{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0}
+.clbl{color:var(--g600)}.cval{font-family:'JetBrains Mono',monospace;font-weight:500;color:var(--g800)}
+.cdiv{border:none;border-top:1px solid var(--g200);margin:7px 0}
+.ctotal{display:flex;justify-content:space-between;font-weight:600;font-size:13.5px}
+.ctotal-l{color:var(--navy)}.ctotal-v{font-family:'JetBrains Mono',monospace;color:var(--navy);font-size:16px}
+.variance{display:flex;align-items:center;gap:.5rem;font-size:12px;margin-top:.5rem;padding:6px 10px;border-radius:6px}
+.variance.under{background:var(--greenl);color:var(--green)}
+.variance.over{background:var(--amberl);color:var(--amber)}
+.addon-grid{display:grid;grid-template-columns:1fr 1fr;gap:.45rem;margin:.7rem 0}
+.addon{display:flex;align-items:center;gap:.65rem;padding:8px 11px;border:1.5px solid var(--g200);border-radius:8px;cursor:pointer;transition:all .13s}
+.addon:hover{border-color:var(--g300)}
+.addon.on{border-color:var(--navy);background:rgba(27,42,71,.03)}
+.addon-chk{width:17px;height:17px;border:2px solid var(--g300);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;color:transparent;flex-shrink:0;transition:all .13s}
+.addon.on .addon-chk{background:var(--navy);border-color:var(--navy);color:#fff}
+.addon-name{font-size:12px;font-weight:500;flex:1;color:var(--g800)}
+.addon-price{font-size:10px;color:var(--g400)}
+.ssec{background:var(--white);border:1px solid var(--g200);border-radius:12px;padding:1.35rem;margin-bottom:1.35rem;box-shadow:var(--shadow)}
+.ssec-title{font-size:11px;font-weight:700;color:var(--navy);letter-spacing:.07em;text-transform:uppercase;margin-bottom:.9rem;padding-bottom:.7rem;border-bottom:1px solid var(--g100)}
+.ssec.highlight{border-color:var(--gold);border-width:2px}
+.ssec.highlight .ssec-title{color:var(--gold3)}
+.gt-wrap{display:flex;gap:.6rem;margin:1rem 0}
+.gt-btn{flex:1;padding:1rem .5rem;border:2px solid var(--g200);border-radius:10px;background:var(--white);cursor:pointer;text-align:center;transition:all .15s;font-family:'Jost',sans-serif}
+.gt-btn:hover{border-color:var(--g300);background:var(--g50)}
+.gt-btn.sel{background:var(--navy);border-color:var(--navy);box-shadow:0 4px 16px rgba(27,42,71,.3)}
+.gt-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--g400);display:block}
+.gt-btn.sel .gt-label{color:var(--gold)}
+.gt-name{font-size:13px;font-weight:600;display:block;color:var(--g800);margin-top:3px}
+.gt-btn.sel .gt-name{color:#fff}
+.gt-desc{font-size:10px;color:var(--g400);display:block;margin-top:2px;line-height:1.4}
+.gt-btn.sel .gt-desc{color:rgba(255,255,255,.55)}
+.rint-wrap{overflow-x:auto}
+.rint-table{width:100%;border-collapse:collapse}
+.rint-table th{text-align:left;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--g400);font-weight:600;padding:7px 10px;border-bottom:2px solid var(--g200)}
+.rint-table td{padding:6px 8px;border-bottom:1px solid var(--g100)}
+.rint-table tr:hover td{background:var(--g50)}
+.rint-table input,.rint-table select{padding:5px 8px;border:1.5px solid var(--g200);border-radius:5px;font-family:'Jost',sans-serif;font-size:12px;width:100%;outline:none}
+.rint-table input:focus,.rint-table select:focus{border-color:var(--navy)}
+.rint-sf{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--g600);text-align:center}
+.add-row-btn{display:flex;align-items:center;gap:.5rem;padding:8px 16px;background:none;border:1.5px dashed var(--g300);border-radius:8px;color:var(--g400);font-family:'Jost',sans-serif;font-size:12.5px;cursor:pointer;width:100%;margin-top:.7rem;transition:all .13s}
+.add-row-btn:hover{border-color:var(--navy);color:var(--navy)}
+.del-btn{width:27px;height:27px;border:none;background:var(--g100);border-radius:5px;cursor:pointer;color:var(--g400);font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .13s}
+.del-btn:hover{background:var(--redl);color:var(--red)}
+.btn{padding:9px 20px;border-radius:7px;font-family:'Jost',sans-serif;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .13s}
+.btn-navy{background:var(--navy);color:#fff}.btn-navy:hover{background:var(--navy2)}
+.btn-gold{background:var(--gold);color:var(--navy);font-weight:700}.btn-gold:hover{background:var(--gold2)}
+.btn-outline{background:none;border:1.5px solid var(--navy);color:var(--navy)}.btn-outline:hover{background:var(--g50)}
+.btn-sm{padding:6px 14px;font-size:12px}
+.dash-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1.5rem}
+.dash-card{background:var(--white);border:1px solid var(--g200);border-radius:12px;padding:1.25rem;box-shadow:var(--shadow)}
+.dash-lbl{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--g400);margin-bottom:4px}
+.dash-val{font-family:'JetBrains Mono',monospace;font-size:26px;color:var(--navy);font-weight:500;line-height:1}
+.dash-val.green{color:var(--green)}.dash-val.amber{color:var(--amber)}
+.dash-sub{font-size:11px;color:var(--g400);margin-top:4px}
+.dash-bar{height:4px;background:var(--g100);border-radius:2px;margin-top:8px;overflow:hidden}
+.dash-bar-fill{height:100%;background:linear-gradient(90deg,var(--t3),var(--gold));border-radius:2px;transition:width .6s}
+.rpt{width:100%;border-collapse:collapse;font-size:13px}
+.rpt th{text-align:left;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--g400);padding:8px 12px;border-bottom:2px solid var(--g200);font-weight:600}
+.rpt td{padding:10px 12px;border-bottom:1px solid var(--g100)}
+.rpt tr:hover td{background:var(--g50)}
+.go-btn{background:var(--navy);color:#fff;border:none;padding:4px 12px;border-radius:4px;font-size:11px;cursor:pointer;font-family:'Jost',sans-serif;font-weight:500}
+.tbadge{display:inline-block;font-size:9px;font-weight:700;padding:2px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace}
+.sbadge{display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 8px;border-radius:12px;font-weight:500}
+.sbadge-done{background:var(--greenl);color:var(--green)}.sbadge-pend{background:var(--g100);color:var(--g400)}
+.div-table{width:100%;border-collapse:collapse}
+.div-table th{text-align:left;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--g400);padding:7px 12px;border-bottom:2px solid var(--g200)}
+.div-table td{padding:10px 12px;font-size:13px;border-bottom:1px solid var(--g100)}
+.div-bar-track{height:5px;background:var(--g100);border-radius:3px;overflow:hidden;width:140px}
+.div-bar-fill{height:100%;background:var(--navy);border-radius:3px;transition:width .5s}
+.div-total{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--navy)}
+.div-pct{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--g400)}
+.pt-grid{overflow-x:auto;margin-bottom:1rem}
+.pt-table{width:100%;border-collapse:collapse;font-size:11.5px}
+.pt-table th{padding:6px 8px;background:var(--g50);font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--g600);border:1px solid var(--g200)}
+.pt-table td{padding:5px 8px;border:1px solid var(--g100)}
+.pt-table input{width:72px;padding:3px 5px;border:1px solid var(--g200);border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:11px;text-align:right}
+.pt-table input:focus{outline:none;border-color:var(--navy)}
+.tlp-row{background:#FFF7ED}
+.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center}
+.modal-ov.open{display:flex}
+.modal{background:var(--white);border-radius:14px;width:700px;max-width:95vw;max-height:88vh;overflow-y:auto;padding:1.75rem;box-shadow:var(--shadow-lg)}
+.modal-title{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:var(--navy)}
+.hw-hdr-row{display:grid;grid-template-columns:2fr 65px 65px 75px 100px 75px 28px;gap:6px;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--g400);font-weight:600;padding:6px 0;border-bottom:2px solid var(--g200)}
+.hw-data-row{display:grid;grid-template-columns:2fr 65px 65px 75px 100px 75px 28px;gap:6px;align-items:center;padding:5px 0;border-bottom:1px solid var(--g100);font-size:12px}
+.hw-data-row input,.hw-data-row select{padding:4px 7px;border:1.5px solid var(--g200);border-radius:5px;font-family:'Jost',sans-serif;font-size:12px;width:100%;outline:none}
+.hw-sf{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--g600);text-align:right}
+.hw-sf.total{color:var(--navy);font-weight:600}
+.nav-btns{display:flex;justify-content:space-between;margin-top:1.75rem;padding-top:1.25rem;border-top:1px solid var(--g100)}
+.welcome-hero{text-align:center;padding:3rem 2rem;max-width:600px;margin:0 auto}
+.welcome-hero h1{font-family:'Cormorant Garamond',serif;font-size:38px;font-weight:700;color:var(--navy);line-height:1.15;margin-bottom:1rem}
+.welcome-hero p{font-size:15px;color:var(--g600);line-height:1.75;margin-bottom:.75rem}
+.welcome-cards{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:2rem 0}
+.welcome-card{background:var(--white);border:1px solid var(--g200);border-radius:12px;padding:1.25rem;text-align:left;cursor:pointer;transition:all .18s}
+.welcome-card:hover{border-color:var(--navy);box-shadow:var(--shadow-lg);transform:translateY(-2px)}
+.welcome-card h3{font-size:15px;font-weight:600;color:var(--navy);margin-bottom:.4rem}
+.welcome-card p{font-size:12px;color:var(--g600);line-height:1.5}
+.welcome-card .wc-icon{font-size:24px;margin-bottom:.6rem}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--g200);border-radius:3px}
+@media print{#bbar,#sidebar,.nav-btns{display:none!important}#main{padding:.5rem}.card-body{display:block!important}body{background:white}}
+</style>
+</head>
+<body>
+<div id="root">
+<div id="bbar">
+  <div class="bb-brand">
+    <div class="bb-logo">TLP</div>
+    <div>
+      <div class="bb-name">TLP Builders LLC</div>
+      <div class="bb-sub">Home Selection Estimator</div>
+      <div class="bb-version">Prototype v1.0 — April 16, 2026</div>
+    </div>
+  </div>
+  <div class="bb-meters">
+    <div class="bb-meter">
+      <div class="bb-mlbl">Selections Budget</div>
+      <div class="bb-mval" id="bm-budget">$0</div>
+    </div>
+    <div class="bb-div"></div>
+    <div class="bb-meter">
+      <div class="bb-mlbl">Remaining</div>
+      <div class="bb-mval green" id="bm-remaining">$0</div>
+      <div class="bb-prog"><div class="bb-pf" id="bm-pf" style="width:0%"></div></div>
+    </div>
+    <div class="bb-div"></div>
+    <div class="bb-meter">
+      <div class="bb-mlbl">This Room</div>
+      <div class="bb-mval gold" id="bm-room">$0</div>
+    </div>
+  </div>
+  <div class="bb-right">
+    <button class="bb-toggle" onclick="toggleBudget()">👁 <span id="btoggle-lbl">Hide Budget</span></button>
+    <button class="bb-toggle" onclick="printReport()">🖨 Field Report</button>
+    <button class="bb-toggle" onclick="exportCSV()">⬇ CSV</button>
+  </div>
+</div>
+<div class="app-body">
+<div id="sidebar">
+  <div class="sb-section">Main</div>
+  <div class="sb-item active" id="nav-welcome" onclick="navTo('welcome')"><span class="sb-icon">🏡</span><span class="sb-lbl">Welcome</span></div>
+  <div class="sb-item" id="nav-setup" onclick="navTo('setup')"><span class="sb-icon">⚙️</span><span class="sb-lbl">Project Setup</span></div>
+  <div class="sb-item" id="nav-rooms" onclick="navTo('rooms')"><span class="sb-icon">📐</span><span class="sb-lbl">Room Intake</span></div>
+  <div class="sb-section" id="rooms-nav-label" style="display:none">Rooms</div>
+  <div id="rooms-nav"></div>
+  <div class="sb-section">Reports</div>
+  <div class="sb-item" id="nav-dashboard" onclick="navTo('dashboard')"><span class="sb-icon">📊</span><span class="sb-lbl">Dashboard</span></div>
+  <div class="sb-item" id="nav-division" onclick="navTo('division')"><span class="sb-icon">📈</span><span class="sb-lbl">Division Summary</span></div>
+  <div class="sb-item" id="nav-pricing" onclick="navTo('pricing')"><span class="sb-icon">💲</span><span class="sb-lbl">Pricing Tables</span></div>
+</div>
+<div id="main">
+<div class="alert-bar" id="alert-bar"></div>
+<!-- WELCOME -->
+<div id="pg-welcome" class="page">
+<div class="welcome-hero">
+  <div style="font-size:48px;margin-bottom:1rem">🏠</div>
+  <h1>Building your home<br><em>one decision at a time</em></h1>
+  <p>Your selections drive your bid. Premium selections give you a premium number. Standard selections give you a standard number. <strong>There is no wrong answer — only yours.</strong></p>
+  <p>We go room by room. One surface at a time. The budget watches itself.</p>
+  <div class="welcome-cards">
+    <div class="welcome-card" onclick="navTo('setup')"><div class="wc-icon">⚙️</div><h3>Set Up My Project</h3><p>Enter client info, set budget, choose global tier. Done in 2 minutes.</p></div>
+    <div class="welcome-card" onclick="navTo('rooms')"><div class="wc-icon">📐</div><h3>Add Rooms First</h3><p>Jump straight to room intake. Add every room with dimensions and location.</p></div>
+    <div class="welcome-card" onclick="navTo('dashboard')"><div class="wc-icon">📊</div><h3>View Dashboard</h3><p>See all rooms, progress, and estimated costs at a glance.</p></div>
+    <div class="welcome-card" onclick="navTo('pricing')"><div class="wc-icon">💲</div><h3>Pricing Tables</h3><p>TLP Staff — real TLP historical rates pre-loaded for 6 categories.</p></div>
+  </div>
+  <div style="font-size:11px;color:var(--g400)">TLP Builders LLC · 1026 Valley Forge Dr, Arrington, TN 37014 · 615-456-9721 · wayne@3TLP.com</div>
+</div>
+</div>
+<!-- SETUP -->
+<div id="pg-setup" class="page" style="display:none">
+<div class="ph"><div class="ph-crumb">Setup</div><div class="ph-title">Project Setup</div><div class="ph-sub">Enter project details once — they populate all headers and the field report.</div></div>
+<div class="ssec"><div class="ssec-title">Client Information</div>
+  <div class="frow c2">
+    <div class="field"><label>Client Name (Owner 1)</label><input id="s-c1" placeholder="First Last" oninput="saveSetup()"></div>
+    <div class="field"><label>Client Name (Owner 2)</label><input id="s-c2" placeholder="First Last" oninput="saveSetup()"></div>
+  </div>
+  <div class="frow c2">
+    <div class="field"><label>Mobile Phone</label><input id="s-ph" placeholder="615-000-0000" oninput="saveSetup()"></div>
+    <div class="field"><label>Email</label><input id="s-em" placeholder="email@example.com" oninput="saveSetup()"></div>
+  </div>
+</div>
+<div class="ssec"><div class="ssec-title">Project Information</div>
+  <div class="frow c1"><div class="field"><label>Project Address</label><input id="s-addr" placeholder="123 Main St, Nashville TN 37000" oninput="saveSetup()"></div></div>
+  <div class="frow c3">
+    <div class="field"><label>Project ID</label><input id="s-pid" placeholder="TLP-2026-001" oninput="saveSetup()"></div>
+    <div class="field"><label>Walkthrough Date</label><input type="date" id="s-dt" oninput="saveSetup()"></div>
+    <div class="field"><label>Number of Floors</label><select id="s-fl" onchange="saveSetup()"><option value="1">1 Floor</option><option value="2" selected>2 Floors</option><option value="3">3 Floors</option></select></div>
+  </div>
+</div>
+<div class="ssec highlight"><div class="ssec-title">💰 Budget and Global Tier</div>
+  <div class="frow c2">
+    <div class="field"><label>Selections Allowance ($)</label><input type="number" id="s-bud" placeholder="200000" oninput="saveSetup();updateBar()"><div class="fnote">Every selection tracks against this in real time</div></div>
+    <div class="field"><label>Total Project Budget ($)</label><input type="number" id="s-total-bud" placeholder="900000" oninput="saveSetup()"><div class="fnote">Reference only</div></div>
+  </div>
+  <div class="frow c3">
+    <div class="field"><label>Main Floor Ceiling (ft)</label><input type="number" id="s-ch1" value="10" oninput="saveSetup()"></div>
+    <div class="field"><label>Upper Floor Ceiling (ft)</label><input type="number" id="s-ch2" value="9" oninput="saveSetup()"></div>
+    <div class="field"><label>Garage Ceiling (ft)</label><input type="number" id="s-ch3" value="10" oninput="saveSetup()"></div>
+  </div>
+  <div class="ssec-title" style="margin-top:1rem">Global Tier — Applies to Every Room by Default</div>
+  <div class="gt-wrap" id="gt-selector"></div>
+  <div style="font-size:12px;color:var(--g600);margin-top:.5rem">Override per room or per item as needed. T3 Better is the TLP default.</div>
+</div>
+<div style="text-align:right"><button class="btn btn-gold" onclick="goFirstRoom()">Next: Room Selections →</button></div>
+</div>
+<!-- ROOM INTAKE -->
+<div id="pg-rooms" class="page" style="display:none">
+<div class="ph"><div class="ph-crumb">Setup</div><div class="ph-title">Room Intake</div><div class="ph-sub">Enter every room. Dimensions auto-calculate all quantities.</div></div>
+<div class="ibox">Stand outside facing the front of the house. FRONT = toward you · BACK = away · LEFT = your left · RIGHT = your right. This orientation stays consistent when you walk through the front door.</div>
+<div class="ssec"><div class="ssec-title">Room List</div>
+  <div class="rint-wrap">
+    <table class="rint-table">
+      <thead><tr>
+        <th style="min-width:160px">Room Name</th>
+        <th style="min-width:150px">Type</th>
+        <th style="width:65px">L (ft)</th>
+        <th style="width:65px">W (ft)</th>
+        <th style="width:65px">H (ft)</th>
+        <th style="min-width:130px">Location</th>
+        <th style="width:80px">Floor SF</th>
+        <th style="width:32px"></th>
+      </tr></thead>
+      <tbody id="room-tbody"></tbody>
+    </table>
+  </div>
+  <button class="add-row-btn" onclick="addRoom()">+ Add Room</button>
+</div>
+<div style="text-align:right"><button class="btn btn-gold" onclick="goFirstRoom()">Next: Room Selections →</button></div>
+</div>
+<!-- ROOM SELECTION -->
+<div id="pg-room" class="page" style="display:none">
+<div class="ph">
+  <div class="ph-crumb" id="rs-crumb">Room Selections</div>
+  <div class="ph-title" id="rs-title">Room</div>
+  <div class="ph-sub" id="rs-sub"></div>
+  <span class="ph-tag" id="rs-dims"></span>
+</div>
+<div class="rtbar">
+  <div><div class="rtbar-lbl">Room Total</div><div class="rtbar-val" id="rs-total">$0</div></div>
+  <div style="text-align:right"><div class="rtbar-lbl">Floor Area</div><div class="rtbar-sf" id="rs-sf">0 SF</div></div>
+</div>
+<div id="rs-cards"></div>
+<div class="nav-btns">
+  <button class="btn btn-outline" id="rs-prev" onclick="roomNav(-1)">← Prev Room</button>
+  <button class="btn btn-gold" id="rs-next" onclick="roomNav(1)">Next Room →</button>
+</div>
+</div>
+<!-- DASHBOARD -->
+<div id="pg-dashboard" class="page" style="display:none">
+<div class="ph"><div class="ph-crumb">Reports</div><div class="ph-title" id="dash-title">Project Dashboard</div><div class="ph-sub" id="dash-sub">Complete Project Setup to get started</div></div>
+<div class="dash-grid">
+  <div class="dash-card"><div class="dash-lbl">Selections Total</div><div class="dash-val" id="dash-total">$0</div><div class="dash-sub" id="dash-pct">0% of budget</div><div class="dash-bar"><div class="dash-bar-fill" id="dash-bar" style="width:0%"></div></div></div>
+  <div class="dash-card"><div class="dash-lbl">Budget Remaining</div><div class="dash-val green" id="dash-rem">$0</div><div class="dash-sub" id="dash-status">Set budget in Project Setup</div></div>
+  <div class="dash-card"><div class="dash-lbl">Rooms Progress</div><div class="dash-val" id="dash-rooms">0/0</div><div class="dash-sub" id="dash-items">0 selections made</div></div>
+</div>
+<div class="ssec"><div class="ssec-title">Room Progress</div>
+  <table class="rpt"><thead><tr><th>Room</th><th>Type</th><th>SF</th><th>Tier</th><th>Est. Cost</th><th>Status</th><th></th></tr></thead><tbody id="dash-tbody"></tbody></table>
+</div>
+</div>
+<!-- DIVISION SUMMARY -->
+<div id="pg-division" class="page" style="display:none">
+<div class="ph"><div class="ph-crumb">Reports</div><div class="ph-title">Division Summary</div><div class="ph-sub">All selections by trade category</div></div>
+<div style="display:flex;gap:.75rem;margin-bottom:1.25rem">
+  <button class="btn btn-navy btn-sm" onclick="window.print()">🖨 Print</button>
+  <button class="btn btn-outline btn-sm" onclick="exportCSV()">⬇ Export CSV</button>
+</div>
+<div class="ssec">
+  <table class="div-table">
+    <thead><tr><th>Division / Category</th><th>Total Cost</th><th>% of Project</th><th>Visual</th></tr></thead>
+    <tbody id="div-tbody"></tbody>
+    <tfoot><tr style="font-weight:700;border-top:2px solid var(--navy)">
+      <td style="color:var(--navy);padding:10px 12px">TOTAL SELECTIONS</td>
+      <td class="div-total" id="div-grand" style="padding:10px 12px">$0</td>
+      <td class="div-pct" style="padding:10px 12px">100%</td>
+      <td></td>
+    </tr></tfoot>
+  </table>
+</div>
+</div>
+<!-- PRICING TABLES -->
+<div id="pg-pricing" class="page" style="display:none">
+<div class="ph"><div class="ph-crumb">Admin — TLP Staff Only</div><div class="ph-title">Pricing Tables</div><div class="ph-sub">Real TLP historical data pre-loaded. T3 Better highlighted as standard. Tax rate: 1.0925 (TN 9.25%)</div></div>
+<div class="ibox tlp"><strong>🔒 TLP Staff Only — Coke Recipe Protected.</strong> These tables never visible to homeowners. Source: Allowance_Pricing_Levels.xlsx · BLANK_Allowances_3_5_2024.xlsm · TLP Historical Data</div>
+<div id="pricing-content"></div>
+</div>
+</div><!-- /main -->
+</div><!-- /app-body -->
+</div><!-- /root -->
+<!-- HW MODAL -->
+<div class="modal-ov" id="hw-modal">
+<div class="modal">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem">
+    <div class="modal-title">🪵 Hardwood Takeoff</div>
+    <button class="btn btn-outline btn-sm" onclick="closeHW()">Close ✕</button>
+  </div>
+  <div class="ibox">Break the floor into rectangles. Total SF with waste flows back to the room sheet.</div>
+  <div class="frow c3" style="margin-bottom:.75rem">
+    <div class="field"><label>Species</label><select id="hw-species"><option>White Oak</option><option>Red Oak</option><option>Hickory</option><option>Walnut</option><option>Maple</option></select></div>
+    <div class="field"><label>Grade</label><select id="hw-grade"><option>#2 Common</option><option>Select</option><option>Clear</option></select></div>
+    <div class="field"><label>Waste Factor</label><select id="hw-waste" onchange="calcHW()"><option value="0.10">10% — Standard straight</option><option value="0.12">12% — Diagonal</option><option value="0.15">15% — Complex/pattern</option></select></div>
+  </div>
+  <div class="hw-hdr-row"><div>Area Name</div><div>L (ft)</div><div>W (ft)</div><div>Net SF</div><div>Type</div><div>+Waste SF</div><div></div></div>
+  <div id="hw-rows"></div>
+  <button class="add-row-btn" onclick="addHWRow()" style="margin:.5rem 0">+ Add Area</button>
+  <div class="cbox" style="margin-top:.75rem">
+    <div class="cbox-title">Takeoff Summary</div>
+    <div class="cline"><span class="clbl">Net SF</span><span class="cval" id="hw-net">0 SF</span></div>
+    <div class="cline"><span class="clbl">With Waste</span><span class="cval" id="hw-waste-total">0 SF</span></div>
+    <hr class="cdiv">
+    <div class="ctotal"><span class="ctotal-l">Estimated Cost</span><span class="ctotal-v" id="hw-cost">—</span></div>
+  </div>
+  <div style="text-align:right;margin-top:1rem"><button class="btn btn-gold" onclick="applyHW()">✓ Apply to Room</button></div>
+</div>
+</div>
+<script>
+// ═══ STATE ═══
+let S={
+  setup:{c1:'',c2:'',ph:'',em:'',addr:'',pid:'TLP-2026-001',dt:'',fl:2,bud:0,totalBud:0,ch1:10,ch2:9,ch3:10,globalTier:3},
+  rooms:[],sel:{},pricing:{}
+};
+let currentPage='welcome',currentRoom=0,hwRoomId=null,budgetVisible=true;
+
+// ═══ MASTER PRICING — TLP HISTORICAL DATA ═══
+// Source: Allowance_Pricing_Levels.xlsx + BLANK_Allowances_3_5_2024.xlsm
+const TNAMES={1:'Contractor',2:'Good',3:'Better',4:'Best',5:'Premium'};
+const TCOLORS={1:'var(--t1)',2:'var(--t2)',3:'var(--t3)',4:'var(--t4)',5:'var(--t5)'};
+const TDESC={1:'Investor/Flip/Rental. Function only.',2:'Entry owner-occupied. Production standard.',3:'Move-up buyer. Upper-mid quality. TLP default.',4:'Semi-custom luxury finish level.',5:'Full custom. Owner selects exact product and price.'};
+
+const MASTER_PRICING={
+  // LIGHTS (TLP Historical — Allowance_Pricing_Levels.xlsx)
+  'light-chandelier-low':{t1:136.56,t2:191.19,t3:273.13,t4:355.06,t5:null},
+  'light-chandelier-high':{t1:273.13,t2:327.75,t3:409.69,t4:491.63,t5:null},
+  'light-vanity':{t1:54.63,t2:81.94,t3:136.56,t4:191.19,t5:null},
+  'light-pendant':{t1:54.63,t2:81.94,t3:136.56,t4:191.19,t5:null},
+  'light-ceiling-fan':{t1:109.25,t2:136.56,t3:191.19,t4:245.81,t5:null},
+  'light-flush-mount':{t1:27.31,t2:38.24,t3:65.55,t4:92.86,t5:null},
+  'light-exterior-wall':{t1:27.31,t2:38.24,t3:65.55,t4:92.86,t5:null},
+  'light-wall-sconce':{t1:27.31,t2:54.63,t3:136.56,t4:218.50,t5:null},
+  'light-island':{t1:136.56,t2:163.88,t3:245.81,t4:327.75,t5:null},
+  'light-under-cabinet':{t1:null,t2:136.56,t3:136.56,t4:191.19,t5:null},
+  // TLP SUPPLIED ELECTRICAL — Fixed rate, no tier variation
+  'tlp-can-6':{t1:65,t2:65,t3:65,t4:65,t5:65,tlpFixed:true},
+  'tlp-can-4':{t1:65,t2:65,t3:65,t4:65,t5:65,tlpFixed:true},
+  'tlp-dimmer':{t1:32.74,t2:32.74,t3:32.74,t4:32.74,t5:32.74,tlpFixed:true},
+  'tlp-bulb':{t1:7.46,t2:7.46,t3:7.46,t4:7.46,t5:7.46,tlpFixed:true},
+  'tlp-smoke':{t1:36.29,t2:36.29,t3:36.29,t4:36.29,t5:36.29,tlpFixed:true},
+  // PLUMBING (TLP Historical — Allowance_Pricing_Levels.xlsx)
+  'plumb-kitchen-faucet':{t1:136.56,t2:245.81,t3:355.06,t4:382.38,t5:null},
+  'plumb-powder-fixture':{t1:54.63,t2:163.88,t3:273.13,t4:382.38,t5:null},
+  'plumb-master-sink':{t1:54.63,t2:163.88,t3:273.13,t4:437.00,t5:null},
+  'plumb-master-tub':{t1:109.25,t2:218.50,t3:327.75,t4:437.00,t5:null},
+  'plumb-master-shower':{t1:109.25,t2:218.50,t3:327.75,t4:382.38,t5:null},
+  'plumb-sec-sink':{t1:54.63,t2:163.88,t3:273.13,t4:437.00,t5:null},
+  'plumb-sec-tub':{t1:109.25,t2:218.50,t3:327.75,t4:437.00,t5:null},
+  'plumb-sec-shower':{t1:109.25,t2:218.50,t3:327.75,t4:437.00,t5:null},
+  'plumb-toilet':{t1:136.56,t2:218.50,t3:327.75,t4:355.06,t5:null},
+  'plumb-handheld':{t1:null,t2:136.56,t3:245.81,t4:300.44,t5:null},
+  'plumb-rainhead':{t1:null,t2:81.94,t3:191.19,t4:437.00,t5:null},
+  'plumb-pot-filler':{t1:null,t2:218.50,t3:327.75,t4:382.38,t5:null},
+  'plumb-diverter':{t1:null,t2:163.88,t3:273.13,t4:437.00,t5:null},
+  // SINKS & TUBS (TLP Historical)
+  'sink-kitchen-top':{t1:136.56,t2:null,t3:null,t4:null,t5:null},
+  'sink-kitchen-under':{t1:null,t2:245.81,t3:null,t4:null,t5:null},
+  'sink-kitchen-granite':{t1:null,t2:null,t3:491.63,t4:null,t5:null},
+  'sink-kitchen-apron':{t1:null,t2:null,t3:null,t4:874.00,t5:null},
+  'sink-bath-standard':{t1:71.01,t2:125.64,t3:251.28,t4:546.25,t5:null},
+  'tub-60inch':{t1:null,t2:327.75,t3:491.63,t4:600.88,t5:null},
+  'tub-master':{t1:546.25,t2:710.13,t3:1748.00,t4:2731.25,t5:null},
+  'tub-overflow-drain':{t1:27.31,t2:38.24,t3:103.79,t4:103.79,t5:null},
+  // HARDWARE (TLP Historical — Allowance_Pricing_Levels.xlsx Door Knobs tab)
+  'hw-front-entry':{t1:116.60,t2:155.93,t3:256.06,t4:495.70,t5:null},
+  'hw-privacy-knob':{t1:12.80,t2:23.49,t3:27.86,t4:45.76,t5:null},
+  'hw-passage-knob':{t1:21.25,t2:22.39,t3:26.71,t4:41.88,t5:null},
+  'hw-dead-bolt':{t1:22.39,t2:36.41,t3:43.62,t4:53.64,t5:null},
+  'hw-entry-set':{t1:25.62,t2:36.54,t3:37.74,t4:69.04,t5:null},
+  'hw-pocket-door':{t1:25.74,t2:26.69,t3:37.50,t4:37.50,t5:null},
+  'hw-hinge-stop':{t1:2.24,t2:2.62,t3:4.04,t4:4.04,t5:2.24,tlpFixed:true},
+  'hw-wall-stop':{t1:2.24,t2:3.15,t3:4.26,t4:4.26,t5:2.24,tlpFixed:true},
+  'hw-sliding-door':{t1:195.56,t2:195.56,t3:195.56,t4:195.56,t5:null},
+  // CABINETS — 7 source tiers mapped to 5 (TLP Historical — Cabinet tab)
+  // T3=avg(src T3+T4)=$550, T4=avg(src T5+T6)=$700, T5=src T7=$1400
+  'cab-base-upper':{t1:200,t2:350,t3:550,t4:700,t5:1400},
+  'cab-island':{t1:200,t2:350,t3:550,t4:700,t5:1400},
+  'cab-vanity':{t1:200,t2:350,t3:550,t4:700,t5:1400},
+  'cab-hood':{t1:200,t2:350,t3:550,t4:700,t5:1400},
+  // WATER HEATER (TLP Historical)
+  'wh-electric-std':{t1:610,t2:700,t3:775,t4:1325,t5:null},
+  'wh-electric-tankless':{t1:836.59,t2:940.38,t3:null,t4:null,t5:null},
+  'wh-gas-std':{t1:955.45,t2:1107.54,t3:null,t4:null,t5:null},
+  'wh-gas-tankless':{t1:529.32,t2:840.96,t3:1688.74,t4:2344.24,t5:null},
+  // SHELVING (TLP Historical — partial)
+  'shelf-wire-12':{t1:7.48,t2:null,t3:null,t4:null,t5:null},
+  'shelf-mdf-14':{t1:null,t2:14.45,t3:null,t4:null,t5:null},
+  // APPLIANCES — pending Perplexity research
+  'appl-refrigerator':{t1:null,t2:null,t3:null,t4:null,t5:null},
+  'appl-range':{t1:null,t2:null,t3:null,t4:null,t5:null},
+  'appl-dishwasher':{t1:null,t2:null,t3:null,t4:null,t5:null},
+  'appl-microwave':{t1:null,t2:null,t3:null,t4:null,t5:null},
+  'appl-range-hood':{t1:null,t2:null,t3:null,t4:null,t5:null},
+  'appl-washer-dryer':{t1:null,t2:null,t3:null,t4:null,t5:null},
+  // FLOORING — placeholder rates pending Perplexity
+  'floor-hardwood':{t1:6.00,t2:9.00,t3:12.00,t4:16.00,t5:22.00},
+  'floor-lvp':{t1:3.00,t2:5.00,t3:7.00,t4:10.50,t5:15.50},
+  'floor-tile':{t1:5.00,t2:8.00,t3:11.00,t4:15.00,t5:20.00},
+  'floor-carpet':{t1:2.50,t2:4.00,t3:6.00,t4:8.00,t5:12.00},
+  // COUNTERTOPS — placeholder rates pending Perplexity
+  'ct-stone':{t1:22,t2:42,t3:65,t4:95,t5:160},
+  'ct-backsplash':{t1:8,t2:14,t3:22,t4:35,t5:55},
+  // TILE
+  'tile-shower-wall':{t1:10,t2:18,t3:28,t4:42,t5:65},
+  // PAINT
+  'paint-walls':{t1:0.80,t2:1.20,t3:1.80,t4:2.50,t5:4.00},
+  'paint-ceiling':{t1:0.60,t2:0.90,t3:1.30,t4:1.80,t5:2.80},
+  // FIREPLACE
+  'fireplace-box':{t1:4500,t2:6500,t3:9000,t4:14000,t5:null},
+  'fireplace-mantel':{t1:1200,t2:1800,t3:2500,t4:4000,t5:null},
+  // BATH ACCESSORIES
+  'bath-shower-glass':{t1:null,t2:450,t3:800,t4:1400,t5:null},
+  'bath-towel-bar':{t1:30,t2:60.42,t3:95,t4:145,t5:null},
+  'bath-mirror':{t1:150,t2:250,t3:400,t4:650,t5:null},
+  // STAIRS (TLP Historical — BLANK_Allowances)
+  'stair-tread-riser':{t1:200,t2:315,t3:450,t4:650,t5:null},
+  'stair-newel':{t1:165,t2:234,t3:350,t4:550,t5:null},
+  'stair-spindle':{t1:10,t2:20.87,t3:35,t4:55,t5:null},
+  'stair-handrail':{t1:15,t2:24.03,t3:35,t4:55,t5:null},
+};
+
+function getRate(catId,tier){
+  if(S.pricing[catId]&&S.pricing[catId]['t'+tier]!=null)return S.pricing[catId]['t'+tier];
+  const p=MASTER_PRICING[catId];
+  if(!p)return null;
+  return p['t'+tier]!=null?p['t'+tier]:null;
+}
+
+function resolveRate(catId,roomId){
+  const item=(S.sel[roomId]||{})[catId]||{};
+  if(item.locked&&item.actualPrice)return{rate:item.actualPrice,source:'actual'};
+  if(item.tier){const r=getRate(catId,item.tier);if(r!=null)return{rate:r,source:'item',tier:item.tier};}
+  const room=S.rooms.find(r=>r.id===roomId);
+  if(room&&room.tier){const r=getRate(catId,room.tier);if(r!=null)return{rate:r,source:'room',tier:room.tier};}
+  if(S.setup.globalTier){const r=getRate(catId,S.setup.globalTier);if(r!=null)return{rate:r,source:'global',tier:S.setup.globalTier};}
+  const r3=getRate(catId,3);if(r3!=null)return{rate:r3,source:'default',tier:3};
+  return{rate:null,source:'none'};
+}
+
+// ═══ ROOM TYPES ═══
+const ROOM_TYPES=['Bedroom','Bedroom/Flex','Bathroom — Primary','Bathroom — Guest','Bathroom — Powder','Kitchen','Scullery/Prep Kitchen','Living Area','Dining Room','Entry/Foyer','Laundry/Mudroom','Office/Flex','Bonus Room','Stairs','Garage','Exterior/Site','Landscape'];
+const LOCATIONS=['','Front Left','Front Center','Front Right','Mid Left','Center','Mid Right','Rear Left','Rear Center','Rear Right'];
+const ROOM_ICONS={'Bedroom':'🛏','Bedroom/Flex':'🛏','Bathroom — Primary':'🛁','Bathroom — Guest':'🚿','Bathroom — Powder':'🚽','Kitchen':'🍳','Scullery/Prep Kitchen':'🥄','Living Area':'🛋','Dining Room':'🍽','Entry/Foyer':'🚪','Laundry/Mudroom':'🧺','Office/Flex':'💼','Bonus Room':'🎮','Stairs':'🪜','Garage':'🚗','Exterior/Site':'🏗','Landscape':'🌿'};
+
+const INIT_ROOMS=[
+  {id:'r1',name:'Primary Suite',type:'Bedroom',L:'18',W:'16',H:'10',location:'Rear Right'},
+  {id:'r2',name:"Owner's Bath",type:'Bathroom — Primary',L:'18',W:'14',H:'10',location:'Rear Right'},
+  {id:'r3',name:'Kitchen',type:'Kitchen',L:'22',W:'18',H:'10',location:'Rear Left'},
+  {id:'r4',name:'Great Room',type:'Living Area',L:'26',W:'20',H:'10',location:'Front Left'},
+  {id:'r5',name:'Dining Room',type:'Dining Room',L:'16',W:'14',H:'10',location:'Front Center'},
+  {id:'r6',name:'Bedroom 2',type:'Bedroom',L:'14',W:'12',H:'10',location:'Front Left'},
+  {id:'r7',name:"Bedroom 2 Bath",type:'Bathroom — Guest',L:'12',W:'10',H:'10',location:'Front Left'},
+  {id:'r8',name:'Laundry/Mudroom',type:'Laundry/Mudroom',L:'14',W:'10',H:'10',location:'Mid Left'},
+];
+
+// ═══ NAVIGATION ═══
+function navTo(page,roomIdx){
+  document.querySelectorAll('.page').forEach(p=>p.style.display='none');
+  document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('active'));
+  document.getElementById('pg-'+page).style.display='block';
+  const nav=document.getElementById('nav-'+page);if(nav)nav.classList.add('active');
+  currentPage=page;
+  if(page==='room'&&roomIdx!==undefined){currentRoom=roomIdx;renderRoomPage(roomIdx);updateRoomsNav();}
+  if(page==='dashboard')renderDashboard();
+  if(page==='division')renderDivision();
+  if(page==='pricing')renderPricingTables();
+  if(page==='setup')buildGlobalTierSelector();
+  updateBar();
+}
+function goFirstRoom(){if(S.rooms.length>0)navTo('room',0);else{alert('Add rooms in Room Intake first.');navTo('rooms');}}
+function roomNav(dir){const n=currentRoom+dir;if(n>=0&&n<S.rooms.length)navTo('room',n);}
+
+// ═══ SETUP ═══
+function saveSetup(){
+  ['c1','c2','ph','em','addr','pid'].forEach(k=>{const el=document.getElementById('s-'+k);if(el)S.setup[k]=el.value;});
+  S.setup.dt=v('s-dt');S.setup.fl=parseInt(v('s-fl'))||2;
+  S.setup.bud=parseFloat(v('s-bud'))||0;S.setup.totalBud=parseFloat(v('s-total-bud'))||0;
+  S.setup.ch1=parseFloat(v('s-ch1'))||10;S.setup.ch2=parseFloat(v('s-ch2'))||9;S.setup.ch3=parseFloat(v('s-ch3'))||10;
+  save();updateBar();
+}
+
+function buildGlobalTierSelector(){
+  const wrap=document.getElementById('gt-selector');if(!wrap)return;
+  wrap.innerHTML=[1,2,3,4,5].map(t=>`
+    <div class="gt-btn${S.setup.globalTier===t?' sel':''}" onclick="setGlobalTier(${t})">
+      <span class="gt-label" style="color:${S.setup.globalTier===t?'var(--gold)':TCOLORS[t]}">T${t}</span>
+      <span class="gt-name">${TNAMES[t]}</span>
+      <span class="gt-desc">${TDESC[t]}</span>
+    </div>`).join('');
+}
+
+function setGlobalTier(t){S.setup.globalTier=t;save();buildGlobalTierSelector();recalcAllRooms();updateBar();updateRoomsNav();}
+
+// ═══ ROOM INTAKE ═══
+function addRoom(data){
+  const id=data?.id||'r'+Date.now();
+  const room=data||{id,name:'',type:ROOM_TYPES[0],L:'',W:'',H:'',location:''};
+  if(!data)S.rooms.push(room);
+  if(!S.sel[room.id])S.sel[room.id]={};
+  renderRoomTable();updateRoomsNav();save();
+}
+
+function renderRoomTable(){
+  const tb=document.getElementById('room-tbody');if(!tb)return;
+  tb.innerHTML='';
+  S.rooms.forEach((room,i)=>{
+    const sf=((parseFloat(room.L)||0)*(parseFloat(room.W)||0));
+    const tr=document.createElement('tr');
+    const typeOpts=ROOM_TYPES.map(t=>`<option${t===room.type?' selected':''}>${t}</option>`).join('');
+    const locOpts=LOCATIONS.map(l=>`<option${l===room.location?' selected':''}>${l}</option>`).join('');
+    tr.innerHTML=`
+      <td><input value="${room.name}" placeholder="e.g. Primary Suite" oninput="upRoom(${i},'name',this.value)"></td>
+      <td><select onchange="upRoom(${i},'type',this.value)">${typeOpts}</select></td>
+      <td><input type="number" value="${room.L}" placeholder="0" oninput="upRoom(${i},'L',this.value)"></td>
+      <td><input type="number" value="${room.W}" placeholder="0" oninput="upRoom(${i},'W',this.value)"></td>
+      <td><input type="number" value="${room.H}" placeholder="10" oninput="upRoom(${i},'H',this.value)"></td>
+      <td><select onchange="upRoom(${i},'location',this.value)">${locOpts}</select></td>
+      <td class="rint-sf">${sf>0?sf.toFixed(0)+' SF':'—'}</td>
+      <td><button class="del-btn" onclick="delRoom(${i})">×</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function upRoom(i,f,val){S.rooms[i][f]=val;renderRoomTable();updateRoomsNav();save();}
+function delRoom(i){if(!confirm('Remove this room?'))return;S.rooms.splice(i,1);renderRoomTable();updateRoomsNav();save();}
+
+function updateRoomsNav(){
+  const label=document.getElementById('rooms-nav-label');
+  const nav=document.getElementById('rooms-nav');
+  nav.innerHTML='';
+  if(!S.rooms.length){if(label)label.style.display='none';return;}
+  if(label)label.style.display='block';
+  S.rooms.forEach((room,i)=>{
+    const tot=roomTotal(room.id);
+    const selCount=Object.keys(S.sel[room.id]||{}).length;
+    const isActive=currentPage==='room'&&currentRoom===i;
+    const div=document.createElement('div');
+    div.className='sb-item'+(isActive?' active':'');
+    div.onclick=()=>navTo('room',i);
+    div.innerHTML=`<span class="sb-icon">${ROOM_ICONS[room.type]||'🏠'}</span>
+      <span class="sb-lbl" style="flex:1">${room.name||room.type}</span>
+      ${tot>0?`<span class="sb-cost">${fmtK(tot)}</span>`:''}
+      <span class="sb-dot${selCount>0?' done':''}"></span>`;
+    nav.appendChild(div);
+  });
+}
+
+// ═══ ROOM PAGE ═══
+function renderRoomPage(idx){
+  const room=S.rooms[idx];if(!room)return;
+  const L=parseFloat(room.L)||0,W=parseFloat(room.W)||0,H=parseFloat(room.H)||0;
+  const sf=L*W,wallSF=2*(L+W)*H,perim=2*(L+W);
+  si('rs-crumb',(room.location||'')+' · '+room.type);
+  si('rs-title',room.name||room.type);si('rs-sub',room.type);
+  si('rs-dims',`${L}×${W}×${H} ft · ${sf.toFixed(0)} SF floor · ${wallSF.toFixed(0)} SF walls · ${perim.toFixed(0)} LF perim`);
+  si('rs-sf',sf.toFixed(0)+' SF');si('rs-total','$'+fmt(roomTotal(room.id)));
+  const prevBtn=document.getElementById('rs-prev');const nextBtn=document.getElementById('rs-next');
+  if(prevBtn)prevBtn.disabled=idx===0;if(nextBtn)nextBtn.disabled=idx===S.rooms.length-1;
+  document.getElementById('rs-cards').innerHTML='';
+  buildRoomCards(room,sf,wallSF,perim);updateBar();
+}
+
+function buildRoomCards(room,sf,wallSF,perim){
+  const c=document.getElementById('rs-cards');
+  const t=room.type;
+  const isBath=t.startsWith('Bathroom');
+  const isKitch=t==='Kitchen'||t==='Scullery/Prep Kitchen';
+  const isBed=t==='Bedroom'||t==='Bedroom/Flex';
+  const isLiving=t==='Living Area';
+  const isLaundry=t==='Laundry/Mudroom';
+  const isStairs=t==='Stairs';
+  const isGarage=t==='Garage';
+  const isExt=t==='Exterior/Site';
+  const isLand=t==='Landscape';
+  if(!isExt&&!isLand&&!isStairs)c.appendChild(mkFlooringCard(room,sf));
+  if(!isExt&&!isLand&&!isStairs)c.appendChild(mkPaintCard(room,wallSF,sf));
+  if(!isExt&&!isLand&&!isStairs)c.appendChild(mkMillworkCard(room,perim));
+  if(isKitch){c.appendChild(mkCabsCard(room));c.appendChild(mkCountertopCard(room));c.appendChild(mkAppliancesCard(room));c.appendChild(mkKitchPlumbCard(room));}
+  if(isBath){c.appendChild(mkBathPlumbCard(room));c.appendChild(mkTileCard(room,sf));c.appendChild(mkBathAccCard(room));c.appendChild(mkVanityCard(room));}
+  if(isBed)c.appendChild(mkClosetCard(room));
+  if(isLiving)c.appendChild(mkFireplaceCard(room));
+  if(isLaundry)c.appendChild(mkLaundryCard(room));
+  if(isStairs)c.appendChild(mkStairCard(room));
+  if(!isExt&&!isLand)c.appendChild(mkLightingCard(room,sf));
+  if(!isExt&&!isLand&&!isStairs)c.appendChild(mkDoorsCard(room));
+  if(isExt)c.appendChild(mkExtCard(room));
+  if(isLand)c.appendChild(mkLandCard(room));
+  c.appendChild(mkCustomCard(room));
+}
+
+// ═══ CARD FACTORY ═══
+function mkCard(id,icon,title,sub,body){
+  const div=document.createElement('div');
+  div.className='card';div.id='card-'+id;
+  div.innerHTML=`<div class="card-hd" onclick="toggleCard('${id}')">
+    <div class="card-icon">${icon}</div>
+    <div style="flex:1"><div class="card-title">${title}</div><div class="card-sub">${sub}</div></div>
+    <div class="card-right"><div class="card-amt" id="camt-${id}"></div><div class="card-chev">▼</div></div>
+  </div><div class="card-body">${body}</div>`;
+  return div;
+}
+function toggleCard(id){const c=document.getElementById('card-'+id);if(c)c.classList.toggle('open');}
+
+function tierSel(catId,roomId,label,unit){
+  const item=(S.sel[roomId]||{})[catId]||{};
+  const curTier=item.locked?5:(item.tier||S.setup.globalTier||3);
+  const p=MASTER_PRICING[catId];
+  const isTLP=p&&p.tlpFixed;
+  let html=`<div class="ts-wrap"><div class="ts-lbl">${label||'Tier'}</div><div class="ts-btns">`;
+  [1,2,3,4,5].forEach(t=>{
+    if(isTLP){
+      const r=getRate(catId,1);
+      html+=`<div class="tb sel" style="pointer-events:none"><span class="tb-num" style="color:var(--gold)">TLP</span><span class="tb-name">Fixed</span><span class="tb-price">${r!=null?'$'+r.toFixed(2):'—'}</span></div>`;
+      if(t<5)return;
+    }else{
+      const r=getRate(catId,t);
+      const isSel=curTier===t&&!item.locked;
+      html+=`<div class="tb${isSel?' sel':''}" onclick="pickTier('${roomId}','${catId}',${t},this)">
+        <span class="tb-num" style="color:${isSel?'var(--gold)':TCOLORS[t]}">T${t}</span>
+        <span class="tb-name">${TNAMES[t]}</span>
+        <span class="tb-price">${r!=null?'$'+r.toFixed(0):t===5?'Actual':'—'}</span>
+      </div>`;
+    }
+  });
+  html+=`</div>`;
+  html+=`<div class="t5-entry${item.locked?' show':''}" id="t5e-${catId}-${roomId}">
+    <div class="ibox" style="font-size:11px;margin-bottom:.75rem"><strong>T5 Premium</strong> — Enter actual product and price. This locks the line item.</div>
+    <div class="frow c3">
+      <div class="field"><label>Brand / Product</label><input value="${item.actualBrand||''}" placeholder="e.g. Kohler Artifacts" oninput="updateActual('${roomId}','${catId}','brand',this.value)"></div>
+      <div class="field"><label>Vendor</label><input value="${item.actualVendor||''}" placeholder="e.g. Ferguson Bath" oninput="updateActual('${roomId}','${catId}','vendor',this.value)"></div>
+      <div class="field"><label>Your Price ($)</label><input type="number" value="${item.actualPrice||''}" placeholder="0.00" oninput="updateActual('${roomId}','${catId}','price',this.value)"></div>
+    </div>
+    ${item.locked&&item.actualPrice?varianceHTML(catId,roomId,item.actualPrice,item.qty||1):''}
+  </div></div>`;
+  return html;
+}
+
+function varianceHTML(catId,roomId,actualPrice,qty){
+  const t4=getRate(catId,4);if(!t4)return'';
+  const diff=(t4-actualPrice)*qty;
+  const cls=diff>0?'under':diff<0?'over':'even';
+  const label=diff>0?`$${fmt(Math.abs(diff))} under T4 allowance ✓`:`$${fmt(Math.abs(diff))} over T4 allowance ⚑`;
+  return`<div class="variance ${cls}">🔒 ACTUAL · ${label}</div>`;
+}
+
+function pickTier(roomId,catId,tier,btn){
+  if(!S.sel[roomId])S.sel[roomId]={};
+  if(!S.sel[roomId][catId])S.sel[roomId][catId]={qty:1};
+  S.sel[roomId][catId].tier=tier;S.sel[roomId][catId].locked=false;
+  btn.closest('.ts-btns').querySelectorAll('.tb').forEach((b,i)=>b.classList.toggle('sel',i+1===tier));
+  const t5Div=document.getElementById('t5e-'+catId+'-'+roomId);
+  if(t5Div)t5Div.classList.toggle('show',tier===5);
+  recalcItem(roomId,catId);
+}
+
+function updateActual(roomId,catId,field,val){
+  if(!S.sel[roomId])S.sel[roomId]={};
+  if(!S.sel[roomId][catId])S.sel[roomId][catId]={qty:1,tier:5};
+  const item=S.sel[roomId][catId];
+  if(field==='brand')item.actualBrand=val;
+  if(field==='vendor')item.actualVendor=val;
+  if(field==='price'){item.actualPrice=parseFloat(val)||0;item.locked=item.actualPrice>0;item.total=item.actualPrice*(item.qty||1);updateRoomTotal(roomId);save();}
+}
+
+function setQty(roomId,catId,qty){
+  if(!S.sel[roomId])S.sel[roomId]={};
+  if(!S.sel[roomId][catId])S.sel[roomId][catId]={};
+  S.sel[roomId][catId].qty=parseFloat(qty)||0;
+  recalcItem(roomId,catId);
+}
+
+function recalcItem(roomId,catId){
+  if(!S.sel[roomId]||!S.sel[roomId][catId])return;
+  const item=S.sel[roomId][catId];
+  if(item.locked&&item.actualPrice){item.total=item.actualPrice*(item.qty||1);}
+  else{const resolved=resolveRate(catId,roomId);item.total=resolved.rate!=null?resolved.rate*(item.qty||1):0;}
+  updateRoomTotal(roomId);
+}
+function recalcAllRooms(){S.rooms.forEach(room=>Object.keys(S.sel[room.id]||{}).forEach(catId=>recalcItem(room.id,catId)));}
+function updateRoomTotal(roomId){si('rs-total','$'+fmt(roomTotal(roomId)));si('bm-room','$'+fmt(roomTotal(roomId)));updateRoomsNav();updateBar();save();}
+function roomTotal(roomId){return Object.values(S.sel[roomId]||{}).reduce((s,c)=>s+(c.total||0),0);}
+function allTotal(){return S.rooms.reduce((s,r)=>s+roomTotal(r.id),0);}
+
+// ═══ CARD BUILDERS ═══
+function mkFlooringCard(room,sf){
+  const rid=room.id;const w10=(sf*1.1).toFixed(0);
+  const body=`<div class="frow c2">
+    <div class="field"><label>Flooring Type</label>
+      <select id="fl-type-${rid}" onchange="setQtyFromType('${rid}',this.value,${sf})">
+        <option value="floor-hardwood">Hardwood</option>
+        <option value="floor-lvp">LVP / Luxury Vinyl</option>
+        <option value="floor-tile">Tile (Ceramic/Porcelain/Stone)</option>
+        <option value="floor-carpet">Carpet with Pad</option>
+      </select></div>
+    <div class="field"><label>Floor SF</label>
+      <input type="number" value="${sf.toFixed(0)}" id="fl-sf-${rid}" oninput="setFlSF('${rid}',this.value)">
+      <span class="fnote"><span class="fauto">AUTO</span>From room dims</span></div>
+  </div>
+  ${tierSel('floor-hardwood',rid,'Flooring Tier','SF')}
+  <div class="cbox"><div class="cbox-title">Flooring Estimate</div>
+    <div class="cline"><span class="clbl">Net SF + 10% waste</span><span class="cval">${w10} SF</span></div>
+    <hr class="cdiv"><div class="ctotal"><span class="ctotal-l">Flooring Total</span><span class="ctotal-v" id="fl-tot-${rid}">—</span></div>
+  </div>`;
+  setTimeout(()=>setQty(rid,'floor-hardwood',sf*1.1),0);
+  return mkCard('fl-'+rid,'🪵','Flooring',sf.toFixed(0)+' SF · Select type and tier',body);
+}
+function setFlSF(rid,sf){setQty(rid,'floor-hardwood',parseFloat(sf)*1.1);}
+function setQtyFromType(rid,catId,sf){setQty(rid,catId,sf*1.1);}
+
+function mkPaintCard(room,wallSF,flSF){
+  const rid=room.id;
+  const body=`<div style="font-size:12px;color:var(--g600);margin-bottom:.75rem">
+    <span class="fauto">AUTO</span>Wall SF: <strong>${wallSF.toFixed(0)}</strong> · Ceiling SF: <strong>${flSF.toFixed(0)}</strong>
+  </div>
+  <div class="frow c2">
+    <div class="field"><label>Wall Finish Type</label>
+      <select><option>Paint Only</option><option>Shiplap</option><option>Wainscoting</option><option>Board &amp; Batten</option></select></div>
+    <div class="field"><label>Accent Wall?</label>
+      <select><option>No</option><option>Yes — 1 wall</option><option>Yes — Feature</option></select></div>
+  </div>
+  ${tierSel('paint-walls',rid,'Paint & Wall Finish Tier','SF')}`;
+  setTimeout(()=>setQty(rid,'paint-walls',wallSF),0);
+  return mkCard('paint-'+rid,'🎨','Paint & Wall Finishes',wallSF.toFixed(0)+' SF walls',body);
+}
+
+function mkMillworkCard(room,perim){
+  const rid=room.id;
+  const body=`<div style="font-size:12px;color:var(--g600);margin-bottom:.75rem">
+    <span class="fauto">AUTO</span>Perimeter: <strong>${perim.toFixed(0)} LF</strong> — base trim, casing, crown auto-calculated
+  </div>
+  <div class="addon-grid">
+    ${['Crown Molding','Coffered Ceiling','Tray Ceiling','Built-In Shelving','Shiplap Feature Wall','Wainscoting'].map(n=>
+      `<div class="addon" onclick="this.classList.toggle('on')"><div class="addon-chk">✓</div><div class="addon-name">${n}</div></div>`).join('')}
+  </div>`;
+  return mkCard('mill-'+rid,'📐','Millwork & Trim',perim.toFixed(0)+' LF perimeter',body);
+}
+
+function mkLightingCard(room,sf){
+  const rid=room.id;const cans=Math.round(sf/50);
+  const body=`<div class="ibox" style="font-size:12px">
+    Recessed cans are TLP Supplied at a <strong>fixed $65/EA</strong> — not a homeowner selection.
+    Decorative fixtures are homeowner selections with tier pricing.
+  </div>
+  <div class="frow c3">
+    <div class="field"><label>6" Cans (EA) <span style="font-size:9px;background:#FFF7ED;color:#92400E;padding:1px 5px;border-radius:3px">TLP Fixed</span></label>
+      <input type="number" value="${cans}" oninput="setQty('${rid}','tlp-can-6',this.value)">
+      <span class="fnote">~1 per 50 SF · $65/EA fixed</span></div>
+    <div class="field"><label>Ceiling Fan?</label>
+      <select onchange="setQty('${rid}','light-ceiling-fan',this.value==='Yes'?1:0)"><option>No</option><option>Yes</option></select></div>
+    <div class="field"><label>Dimmers (EA) <span style="font-size:9px;background:#FFF7ED;color:#92400E;padding:1px 5px;border-radius:3px">TLP Fixed</span></label>
+      <input type="number" value="${Math.ceil(cans/3)}" oninput="setQty('${rid}','tlp-dimmer',this.value)"></div>
+  </div>
+  <div class="frow c2">
+    <div class="field"><label>Main Fixture Type</label>
+      <select id="cht-${rid}" onchange="setChandelier('${rid}')">
+        <option value="">None</option>
+        <option value="light-chandelier-low">Chandelier — Low Ceiling (5-bulb)</option>
+        <option value="light-chandelier-high">Chandelier — High Ceiling (8-bulb)</option>
+        <option value="light-flush-mount">Flush Mount Light</option>
+        <option value="light-ceiling-fan">Ceiling Fan</option>
+      </select></div>
+    <div class="field"><label>Count (EA)</label>
+      <input type="number" value="1" id="ch-qty-${rid}" oninput="setChandelier('${rid}')"></div>
+  </div>
+  <div id="chand-ts-${rid}"></div>
+  ${tierSel('tlp-can-6',rid,'Recessed Can Rate (TLP Fixed)','EA')}`;
+  setTimeout(()=>{setQty(rid,'tlp-can-6',cans);setQty(rid,'tlp-dimmer',Math.ceil(cans/3));},0);
+  return mkCard('light-'+rid,'💡','Lighting','~'+cans+' cans suggested · Decorative fixtures tier-priced',body);
+}
+
+function setChandelier(rid){
+  const catId=document.getElementById('cht-'+rid)?.value;
+  const qty=parseFloat(document.getElementById('ch-qty-'+rid)?.value)||1;
+  const div=document.getElementById('chand-ts-'+rid);
+  if(!div)return;
+  if(!catId){div.innerHTML='';return;}
+  div.innerHTML=tierSel(catId,rid,'Main Fixture Tier','EA');
+  setQty(rid,catId,qty);
+}
+
+function mkDoorsCard(room){
+  const rid=room.id;
+  const body=`<div class="frow c3">
+    <div class="field"><label>Swing Doors (EA)</label><input type="number" value="1" oninput="setQty('${rid}','hw-privacy-knob',this.value)"></div>
+    <div class="field"><label>Pocket Doors (EA)</label><input type="number" value="0" oninput="setQty('${rid}','hw-pocket-door',this.value)"></div>
+    <div class="field"><label>Barn Doors (EA)</label><input type="number" value="0"></div>
+  </div>
+  ${tierSel('hw-privacy-knob',rid,'Door Hardware Tier','EA')}`;
+  return mkCard('doors-'+rid,'🚪','Doors & Hardware','Interior doors · Hardware package',body);
+}
+
+function mkCabsCard(room){
+  const rid=room.id;
+  const body=`<div class="ibox">Enter cabinet LF. Countertop SF and backsplash SF calculate automatically.</div>
+  <div class="frow c3">
+    <div class="field"><label>Upper Cabs (LF)</label><input type="number" value="0" id="cab-u-${rid}" oninput="cabCalc('${rid}')"></div>
+    <div class="field"><label>Lower Cabs (LF)</label><input type="number" value="0" id="cab-l-${rid}" oninput="cabCalc('${rid}')"></div>
+    <div class="field"><label>Island (LF, 0=none)</label><input type="number" value="0" id="cab-i-${rid}" oninput="cabCalc('${rid}')"></div>
+  </div>
+  <div class="frow c2">
+    <div class="field"><label>Hood Cabinet (LF)</label><input type="number" value="0" id="cab-h-${rid}" oninput="cabCalc('${rid}')"></div>
+    <div class="field"><label>Pantry Tall (EA, count as 2 LF each)</label><input type="number" value="0" id="cab-p-${rid}" oninput="cabCalc('${rid}')"></div>
+  </div>
+  <div class="addon-grid">
+    ${[['Cabinets to Ceiling','10ft premium'],['Soft Close Doors & Drawers','+$8/LF'],['Pull-Out Shelves','+$85/EA'],['Interior LED Lighting','+$12/LF']].map(([n,d])=>
+      `<div class="addon" onclick="this.classList.toggle('on')"><div class="addon-chk">✓</div><div class="addon-name">${n}</div><div class="addon-price">${d}</div></div>`).join('')}
+  </div>
+  ${tierSel('cab-base-upper',rid,'Cabinet Tier (per LF)','LF')}
+  <div class="cbox" id="cab-calc-${rid}"><div class="cbox-title">Cabinet Auto-Calculate</div>
+    <div class="cline"><span class="clbl">Total Cabinet LF</span><span class="cval" id="cab-lf-${rid}">0 LF</span></div>
+    <div class="cline"><span class="clbl">→ Countertop SF (auto)</span><span class="cval" id="cab-ct-${rid}">0 SF</span></div>
+    <div class="cline"><span class="clbl">→ Backsplash SF (auto)</span><span class="cval" id="cab-bs-${rid}">0 SF</span></div>
+    <div class="cline"><span class="clbl">→ Hardware Pulls (auto)</span><span class="cval" id="cab-hw-${rid}">0 EA</span></div>
+    <hr class="cdiv"><div class="ctotal"><span class="ctotal-l">Cabinet Total</span><span class="ctotal-v" id="cab-tot-${rid}">—</span></div>
+    <div style="margin-top:.5rem;font-size:11px;color:var(--amber)">⚑ Countertops &amp; backsplash pre-loaded in Countertop card below</div>
+  </div>`;
+  return mkCard('cabs-'+rid,'🗄','Cabinets','Kitchen cabinetry · Auto-calculates countertop & backsplash',body);
+}
+
+function cabCalc(rid){
+  const u=parseFloat(document.getElementById('cab-u-'+rid)?.value)||0;
+  const l=parseFloat(document.getElementById('cab-l-'+rid)?.value)||0;
+  const isle=parseFloat(document.getElementById('cab-i-'+rid)?.value)||0;
+  const hood=parseFloat(document.getElementById('cab-h-'+rid)?.value)||0;
+  const pant=parseFloat(document.getElementById('cab-p-'+rid)?.value)||0;
+  const totalLF=u+l+isle+hood+(pant*2);
+  const ctSF=(totalLF*2.1).toFixed(0);
+  const bsSF=((u+isle+hood)*1.5).toFixed(0);
+  const hwCt=Math.round(totalLF/1.5)*2;
+  si('cab-lf-'+rid,totalLF.toFixed(1)+' LF');
+  si('cab-ct-'+rid,ctSF+' SF');si('cab-bs-'+rid,bsSF+' SF');si('cab-hw-'+rid,hwCt+' EA');
+  setQty(rid,'cab-base-upper',totalLF);setQty(rid,'ct-stone',parseFloat(ctSF));setQty(rid,'ct-backsplash',parseFloat(bsSF));
+  const cabSel=(S.sel[rid]||{})['cab-base-upper']||{};
+  si('cab-tot-'+rid,cabSel.total>0?'$'+fmt(cabSel.total):'—');
+}
+
+function mkCountertopCard(room){
+  const rid=room.id;
+  const body=`<div style="font-size:12px;color:var(--g600);margin-bottom:.75rem">
+    <span class="fauto">AUTO</span>SF from cabinet intake. Override if needed.
+  </div>
+  <div class="frow c2">
+    <div class="field"><label>Countertop SF (override)</label><input type="number" placeholder="Auto from cabinets" oninput="setQty('${rid}','ct-stone',this.value)"></div>
+    <div class="field"><label>Edge Profile</label><select><option>Eased (standard)</option><option>Ogee</option><option>Waterfall</option><option>Mitered</option></select></div>
+  </div>
+  ${tierSel('ct-stone',rid,'Countertop Material Tier','SF')}
+  ${tierSel('ct-backsplash',rid,'Backsplash Tile Tier','SF')}`;
+  return mkCard('ct-'+rid,'⬛','Countertops','Kitchen & island surfaces',body);
+}
+
+function mkAppliancesCard(room){
+  const rid=room.id;
+  const body=`<div class="ibox tlp"><strong>⚑ Appliance pricing pending Perplexity research.</strong>
+    Use T5 — enter actual brand, model, and price for each appliance.
+  </div>
+  <div class="frow c2">
+    ${['Refrigerator','Range/Cooktop','Range Hood','Dishwasher','Microwave','Warming Drawer'].map(item=>
+      `<div class="field"><label>${item}</label><input type="text" placeholder="Brand / Model #"></div>`).join('')}
+  </div>
+  <div class="field" style="margin-top:.5rem"><label>Appliance Package Total ($)</label>
+    <input type="number" placeholder="0" oninput="updateActual('${rid}','appl-refrigerator','price',this.value)">
+    <span class="fnote">Enter total allowance until individual items are priced</span>
+  </div>`;
+  return mkCard('appl-'+rid,'🍽','Appliances','Kitchen appliance package · Enter actual products',body);
+}
+
+function mkKitchPlumbCard(room){
+  const rid=room.id;
+  const body=`${tierSel('plumb-kitchen-faucet',rid,'Kitchen Faucet Tier','EA')}
+  <div class="frow c2">
+    <div class="field"><label>Main Sink Faucet (EA)</label><input type="number" value="1" oninput="setQty('${rid}','plumb-kitchen-faucet',this.value)"></div>
+    <div class="field"><label>Pot Filler (EA)</label><input type="number" value="0" oninput="setQty('${rid}','plumb-pot-filler',this.value)"></div>
+  </div>
+  ${tierSel('plumb-pot-filler',rid,'Pot Filler Tier','EA')}
+  <div class="addon-grid">
+    ${[['Prep Sink + Disposal','Second sink package'],['Instant Hot Water','Under-counter unit'],['Soap Dispenser','TLP supplied'],['Garbage Disposal','Standard']].map(([n,d])=>
+      `<div class="addon" onclick="this.classList.toggle('on')"><div class="addon-chk">✓</div><div class="addon-name">${n}</div><div class="addon-price">${d}</div></div>`).join('')}
+  </div>`;
+  setTimeout(()=>setQty(rid,'plumb-kitchen-faucet',1),0);
+  return mkCard('kplumb-'+rid,'🚰','Plumbing — Kitchen','Complete kitchen plumbing package',body);
+}
+
+function mkBathPlumbCard(room){
+  const rid=room.id;const t=room.type;
+  const isPrimary=t==='Bathroom — Primary';const isPowder=t==='Bathroom — Powder';
+  const note=isPrimary?"Owner's Bath: tub, shower, dual sinks, faucets, toilet":isPowder?'Powder bath: vessel sink, faucet, toilet':'Guest bath: tub/shower combo, sink, faucet, toilet';
+  const body=`<div class="ibox" style="font-size:12px">${note}</div>
+  ${tierSel('plumb-toilet',rid,'Toilet Tier','EA')}
+  <div class="field" style="margin:.75rem 0"><label>Toilet Count (EA)</label><input type="number" value="1" oninput="setQty('${rid}','plumb-toilet',this.value)"></div>
+  ${tierSel(isPrimary?'plumb-master-sink':'plumb-sec-sink',rid,'Sink Fixture Tier','EA')}
+  ${isPrimary?`${tierSel('plumb-master-tub',rid,'Tub Fixture Tier','PC')}
+  ${tierSel('plumb-master-shower',rid,'Shower Fixture Tier','EA')}
+  ${tierSel('plumb-handheld',rid,'Hand Held / Rain Head','EA')}
+  <div class="addon-grid">
+    ${[['Freestanding Tub','Upgrade from drop-in'],['Steam Shower','Add generator'],['Heated Floor','Radiant mat'],['Towel Warmer','Electric wall']].map(([n,d])=>
+      `<div class="addon" onclick="this.classList.toggle('on')"><div class="addon-chk">✓</div><div class="addon-name">${n}</div><div class="addon-price">${d}</div></div>`).join('')}
+  </div>`:''}`;
+  setTimeout(()=>setQty(rid,'plumb-toilet',1),0);
+  return mkCard('bplumb-'+rid,'🚿','Plumbing Fixtures',t+' plumbing package',body);
+}
+
+function mkTileCard(room,sf){
+  const rid=room.id;
+  const body=`<div class="frow c2">
+    <div class="field"><label>Floor Tile SF</label><input type="number" value="${sf.toFixed(0)}" oninput="setQty('${rid}','floor-tile',this.value)">
+      <span class="fnote"><span class="fauto">AUTO</span>From room dims</span></div>
+    <div class="field"><label>Shower Wall SF</label><input type="number" value="0" oninput="setQty('${rid}','tile-shower-wall',this.value)">
+      <span class="fnote">Measure walls in shower stall</span></div>
+  </div>
+  <div class="addon-grid">
+    ${[['Tub Surround Tile','~30 SF'],['Accent Strip / Niche','Decorative'],['Heated Floor','Radiant mat'],['Large Format 24"+"','Premium labor']].map(([n,d])=>
+      `<div class="addon" onclick="this.classList.toggle('on')"><div class="addon-chk">✓</div><div class="addon-name">${n}</div><div class="addon-price">${d}</div></div>`).join('')}
+  </div>
+  ${tierSel('floor-tile',rid,'Floor Tile Tier','SF')}
+  ${tierSel('tile-shower-wall',rid,'Shower Wall Tile Tier','SF')}`;
+  setTimeout(()=>setQty(rid,'floor-tile',sf),0);
+  return mkCard('tile-'+rid,'⬜','Tile','Floor · Shower walls · Tub surround',body);
+}
+
+function mkBathAccCard(room){
+  const rid=room.id;const isPrimary=room.type==='Bathroom — Primary';
+  const body=`<div class="ibox" style="font-size:12px">${isPrimary?'Towel bars ×2, robe hooks ×2, TP holder, towel ring, shower accessories — all matching finish':'Towel bar, robe hook, TP holder, towel ring — all matching finish'}</div>
+  ${tierSel('bath-towel-bar',rid,'Bath Accessory Package Tier','PKG')}
+  ${tierSel('bath-shower-glass',rid,'Shower Glass Enclosure','EA')}
+  <div class="frow c2" style="margin-top:.5rem">
+    <div class="field"><label>Mirror Count (EA)</label><input type="number" value="${isPrimary?2:1}" oninput="setQty('${rid}','bath-mirror',this.value)"></div>
+    <div class="field"><label>Glass Style</label><select><option>Frameless Standard</option><option>Frameless Large</option><option>Semi-Frameless</option></select></div>
+  </div>
+  ${tierSel('bath-mirror',rid,'Mirror Tier','EA')}`;
+  setTimeout(()=>{setQty(rid,'bath-towel-bar',1);setQty(rid,'bath-mirror',isPrimary?2:1);},0);
+  return mkCard('bacc-'+rid,'🪞','Bath Accessories & Glass','Hardware package + shower glass',body);
+}
+
+function mkVanityCard(room){
+  const rid=room.id;const isPrimary=room.type==='Bathroom — Primary';
+  const body=`<div class="frow c2">
+    <div class="field"><label>Vanity Width (inches)</label><input type="number" placeholder="${isPrimary?72:48}" oninput="setQty('${rid}','cab-vanity',Math.max(this.value/12,0))"></div>
+    <div class="field"><label>Number of Sinks</label><select><option>1</option><option${isPrimary?' selected':''}>2</option></select></div>
+  </div>
+  ${tierSel('cab-vanity',rid,'Vanity Cabinet Tier','LF')}
+  ${tierSel('ct-stone',rid,'Vanity Top / Countertop Tier','SF')}`;
+  return mkCard('van-'+rid,'🗄','Vanity & Countertop','Bathroom cabinetry and surfaces',body);
+}
+
+function mkClosetCard(room){
+  const rid=room.id;
+  const body=`<div class="ibox" style="font-size:12px">Enter closet dims — rods, shelves, knobs all calculate automatically from dimensions.</div>
+  <div class="frow c2">
+    <div class="field"><label>Closet Length (ft)</label><input type="number" value="0" id="clen-${rid}" oninput="closetCalc('${rid}')"></div>
+    <div class="field"><label>Closet Width (ft)</label><input type="number" value="0" id="cwid-${rid}" oninput="closetCalc('${rid}')"></div>
+  </div>
+  <div class="addon-grid">
+    ${[['Lots of Shoes','Adds shoe shelves'],['Lots of Purses','Adds cubbies'],['Drawer System','3-drawer units'],['Closet Island','48"×24"']].map(([n,d])=>
+      `<div class="addon" onclick="this.classList.toggle('on')"><div class="addon-chk">✓</div><div class="addon-name">${n}</div><div class="addon-price">${d}</div></div>`).join('')}
+  </div>
+  ${tierSel('shelf-wire-12',rid,'Closet System Tier','LF')}
+  <div class="cbox" id="clos-calc-${rid}"><div class="cbox-title">Closet Auto-Calculate</div>
+    <div class="cline"><span class="clbl">Wall LF available</span><span class="cval" id="cwall-${rid}">0 LF</span></div>
+    <div class="cline"><span class="clbl">Hanging sections</span><span class="cval" id="changs-${rid}">0</span></div>
+    <div class="cline"><span class="clbl">Shelf runs</span><span class="cval" id="cshelv-${rid}">0</span></div>
+  </div>`;
+  return mkCard('clos-'+rid,'👗','Closet System','Walk-in closet · Auto-calculates components',body);
+}
+
+function closetCalc(rid){
+  const len=parseFloat(document.getElementById('clen-'+rid)?.value)||0;
+  const wid=parseFloat(document.getElementById('cwid-'+rid)?.value)||0;
+  const wallLF=2*(len+wid);
+  si('cwall-'+rid,wallLF.toFixed(0)+' LF');
+  si('changs-'+rid,Math.floor(wallLF/4));
+  si('cshelv-'+rid,Math.floor(wallLF/2));
+  setQty(rid,'shelf-wire-12',wallLF);
+}
+
+function mkFireplaceCard(room){
+  const rid=room.id;
+  const body=`<div class="frow c2">
+    <div class="field"><label>Fireplace Type</label>
+      <select><option>None</option><option>Gas Traditional</option><option>Gas Linear (Modern)</option><option>Wood Burning</option><option>Electric</option></select></div>
+    <div class="field"><label>Surround Material</label>
+      <select><option>Tile</option><option>Natural Stone</option><option>Custom Millwork</option></select></div>
+  </div>
+  ${tierSel('fireplace-box',rid,'Fireplace Unit Tier','EA')}
+  <div class="field" style="margin:.75rem 0"><label>Unit Count (EA)</label><input type="number" value="1" oninput="setQty('${rid}','fireplace-box',this.value)"></div>
+  ${tierSel('fireplace-mantel',rid,'Mantel Tier','EA')}
+  <div class="addon-grid">
+    ${[['Mantel','$1,200–$4,000'],['Hearth Stone','Per design'],['Remote Controls','Electronic'],['Feature Wall','Tile or stone']].map(([n,d])=>
+      `<div class="addon" onclick="this.classList.toggle('on')"><div class="addon-chk">✓</div><div class="addon-name">${n}</div><div class="addon-price">${d}</div></div>`).join('')}
+  </div>`;
+  return mkCard('fire-'+rid,'🔥','Fireplace','Unit + surround + mantel package',body);
+}
+
+function mkLaundryCard(room){
+  const rid=room.id;
+  const body=`${tierSel('appl-washer-dryer',rid,'Laundry Package (W/D + Pedestals)','PKG')}
+  <div class="ibox tlp" style="font-size:12px;margin-top:.75rem"><strong>⚑ Appliance pricing pending.</strong> Enter actual brands/prices in T5 fields.</div>
+  <div class="addon-grid">
+    ${[['Utility Sink','Sink + faucet'],['Folding Counter','Above W/D'],['Cabinets Above','Upper run'],['Mudroom Bench + Hooks','Built-in']].map(([n,d])=>
+      `<div class="addon" onclick="this.classList.toggle('on')"><div class="addon-chk">✓</div><div class="addon-name">${n}</div><div class="addon-price">${d}</div></div>`).join('')}
+  </div>`;
+  return mkCard('laun-'+rid,'🧺','Laundry & Mudroom','W/D + utility selections',body);
+}
+
+function mkStairCard(room){
+  const rid=room.id;
+  const body=`<div class="frow c3">
+    <div class="field"><label>Stairs (EA)</label><input type="number" value="14" oninput="setQty('${rid}','stair-tread-riser',this.value)"></div>
+    <div class="field"><label>Newel Posts (EA)</label><input type="number" value="2" oninput="setQty('${rid}','stair-newel',this.value)"></div>
+    <div class="field"><label>Handrail (LF)</label><input type="number" value="12" oninput="setQty('${rid}','stair-handrail',this.value)"></div>
+  </div>
+  <div class="frow c2">
+    <div class="field"><label>Spindle Spacing</label><select><option value="4">4" (standard)</option><option value="3">3" (tighter)</option></select></div>
+    <div class="field"><label>Spindle Count (auto ~3/tread)</label><input type="number" value="42" oninput="setQty('${rid}','stair-spindle',this.value)"></div>
+  </div>
+  ${tierSel('stair-tread-riser',rid,'Stair Tread/Riser Tier','EA')}
+  ${tierSel('stair-newel',rid,'Newel Post Tier','EA')}
+  ${tierSel('stair-spindle',rid,'Spindle Tier','EA')}
+  ${tierSel('stair-handrail',rid,'Handrail Tier','LF')}`;
+  setTimeout(()=>{setQty(rid,'stair-tread-riser',14);setQty(rid,'stair-newel',2);setQty(rid,'stair-handrail',12);setQty(rid,'stair-spindle',42);},0);
+  return mkCard('stair-'+rid,'🪜','Stair Package','Treads, risers, newels, spindles, handrail',body);
+}
+
+function mkExtCard(room){
+  const rid=room.id;
+  const body=`<div class="ibox">Quantities require plan takeoff. Enter SF/SQ/LF from construction documents.</div>
+  <div class="frow c2">
+    <div class="field"><label>Roof SQ (1 SQ = 100 SF)</label><input type="number" placeholder="0"></div>
+    <div class="field"><label>Roof Type</label><select><option>Arch. Shingle</option><option>Metal Standing Seam</option></select></div>
+  </div>
+  <div class="frow c2">
+    <div class="field"><label>Siding SF</label><input type="number" placeholder="0"></div>
+    <div class="field"><label>Siding Type</label><select><option>Hardie Board</option><option>Brick</option><option>Stone Veneer</option><option>Combination</option></select></div>
+  </div>
+  <div class="frow c3">
+    <div class="field"><label>Windows (EA)</label><input type="number" placeholder="0"></div>
+    <div class="field"><label>Ext. Doors (EA)</label><input type="number" placeholder="0"></div>
+    <div class="field"><label>Gutters (LF)</label><input type="number" placeholder="0"></div>
+  </div>`;
+  return mkCard('ext-'+rid,'🏗','Exterior Envelope','Roofing · Siding · Windows · Doors',body);
+}
+
+function mkLandCard(room){
+  const rid=room.id;
+  const body=`<div class="frow c2">
+    <div class="field"><label>Deck / Porch (SF)</label><input type="number" placeholder="0"></div>
+    <div class="field"><label>Patio (SF)</label><input type="number" placeholder="0"></div>
+  </div>
+  <div class="addon-grid">
+    ${[['Irrigation System','Full yard'],['Outdoor Kitchen','Package'],['Fire Pit','Gas or wood'],['Landscape Lighting','Path + accent']].map(([n,d])=>
+      `<div class="addon" onclick="this.classList.toggle('on')"><div class="addon-chk">✓</div><div class="addon-name">${n}</div><div class="addon-price">${d}</div></div>`).join('')}
+  </div>`;
+  return mkCard('land-'+rid,'🌿','Landscape & Site','Deck · Patio · Fence · Outdoor amenities',body);
+}
+
+function mkCustomCard(room){
+  const rid=room.id;
+  const body=`<div class="ibox" style="font-size:12px">Add anything not covered above. No restrictions — enter description and dollar amount.</div>
+  <div id="custom-items-${rid}"></div>
+  <button class="add-row-btn" onclick="addCustomItem('${rid}')">+ Add Custom Item</button>`;
+  return mkCard('cust-'+rid,'✨','Custom Items','Add anything — no restrictions',body);
+}
+
+function addCustomItem(rid){
+  const c=document.getElementById('custom-items-'+rid);if(!c)return;
+  const row=document.createElement('div');
+  row.style.cssText='display:grid;grid-template-columns:2fr 1fr 28px;gap:8px;margin-bottom:6px;align-items:flex-end';
+  row.innerHTML=`<div class="field"><label>Description</label><input type="text" placeholder="e.g. Sauna unit — custom"></div>
+    <div class="field"><label>Amount ($)</label><input type="number" placeholder="0"></div>
+    <button class="del-btn" style="align-self:flex-end" onclick="this.parentElement.remove()">×</button>`;
+  c.appendChild(row);
+}
+
+// ═══ HARDWOOD MODAL ═══
+function openHW(rid){hwRoomId=rid;document.getElementById('hw-modal').classList.add('open');if(!document.querySelectorAll('#hw-rows .hw-data-row').length)addHWRow();}
+function closeHW(){document.getElementById('hw-modal').classList.remove('open');}
+function addHWRow(){
+  const c=document.getElementById('hw-rows');const div=document.createElement('div');
+  div.className='hw-data-row';
+  div.innerHTML=`<input type="text" placeholder="Area name">
+    <input type="number" placeholder="L" oninput="calcHW()">
+    <input type="number" placeholder="W" oninput="calcHW()">
+    <div class="hw-sf">0 SF</div>
+    <select><option>New HW</option><option>S&amp;F Existing</option></select>
+    <div class="hw-sf total">0 SF</div>
+    <button class="del-btn" onclick="this.parentElement.remove();calcHW()">×</button>`;
+  c.appendChild(div);calcHW();
+}
+function calcHW(){
+  const rows=document.querySelectorAll('#hw-rows .hw-data-row');
+  let net=0;const wf=parseFloat(document.getElementById('hw-waste').value)||0.1;
+  rows.forEach(row=>{
+    const inputs=row.querySelectorAll('input[type="number"]');
+    const L=parseFloat(inputs[0]?.value)||0,W=parseFloat(inputs[1]?.value)||0;
+    const sf=L*W;net+=sf;
+    const sfs=row.querySelectorAll('.hw-sf');
+    if(sfs[0])sfs[0].textContent=sf.toFixed(0)+' SF';
+    if(sfs[1])sfs[1].textContent=(sf*(1+wf)).toFixed(0)+' SF';
+  });
+  const wasteSF=net*(1+wf);
+  si('hw-net',net.toFixed(0)+' SF');si('hw-waste-total',wasteSF.toFixed(0)+' SF');
+  const resolved=hwRoomId?resolveRate('floor-hardwood',hwRoomId):{rate:null};
+  si('hw-cost',resolved.rate?'$'+fmt(wasteSF*resolved.rate):'— set tier on room sheet');
+}
+function applyHW(){
+  calcHW();const wf=parseFloat(document.getElementById('hw-waste').value)||0.1;
+  const net=parseFloat(document.getElementById('hw-net').textContent)||0;
+  const wasteSF=net*(1+wf);
+  if(hwRoomId)setQty(hwRoomId,'floor-hardwood',wasteSF);
+  closeHW();
+}
+
+// ═══ BUDGET BAR ═══
+function updateBar(){
+  const bud=S.setup.bud||0,tot=allTotal(),rem=bud-tot;
+  const pct=bud>0?Math.min((tot/bud)*100,100):0;
+  if(!budgetVisible){si('bm-budget','— —');si('bm-remaining','— —');document.getElementById('bm-pf').style.width='0%';document.getElementById('alert-bar').className='alert-bar';return;}
+  si('bm-budget','$'+fmt(bud));si('bm-remaining','$'+fmt(Math.max(rem,0)));
+  const pf=document.getElementById('bm-pf');if(pf)pf.style.width=pct+'%';
+  const remEl=document.getElementById('bm-remaining');if(remEl)remEl.className='bb-mval '+(rem<0?'red':'green');
+  const al=document.getElementById('alert-bar');if(!al)return;
+  if(bud>0&&rem<0){al.className='alert-bar show danger';al.textContent='⚠ Over budget by $'+fmt(Math.abs(rem))+' — adjust tier selections to reduce cost.';}
+  else if(bud>0&&pct>80){al.className='alert-bar show warn';al.textContent='⚡ '+pct.toFixed(0)+'% of selections budget allocated — $'+fmt(rem)+' remaining.';}
+  else al.className='alert-bar';
+}
+function toggleBudget(){budgetVisible=!budgetVisible;si('btoggle-lbl',budgetVisible?'Hide Budget':'Show Budget');updateBar();}
+
+// ═══ DASHBOARD ═══
+function renderDashboard(){
+  const tot=allTotal(),bud=S.setup.bud||0,rem=bud-tot,pct=bud>0?((tot/bud)*100):0;
+  const started=S.rooms.filter(r=>Object.keys(S.sel[r.id]||{}).length>0).length;
+  const selCount=S.rooms.reduce((s,r)=>s+Object.keys(S.sel[r.id]||{}).length,0);
+  const c1=S.setup.c1,c2=S.setup.c2;
+  if(c1){si('dash-title',(c1+(c2?' & '+c2:''))+' — Selection Summary');si('dash-sub',S.setup.addr||'');}
+  si('dash-total','$'+fmt(tot));si('dash-pct',pct.toFixed(1)+'% of budget allocated');
+  si('dash-rem','$'+fmt(rem));si('dash-status',bud>0?'vs $'+fmt(bud)+' budget':'Set budget in Project Setup');
+  si('dash-rooms',started+'/'+S.rooms.length);si('dash-items',selCount+' selections made');
+  const bar=document.getElementById('dash-bar');if(bar)bar.style.width=Math.min(pct,100)+'%';
+  const tb=document.getElementById('dash-tbody');if(!tb)return;
+  if(!S.rooms.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--g400);padding:2rem">Add rooms in Room Intake to get started</td></tr>';return;}
+  tb.innerHTML=S.rooms.map((room,i)=>{
+    const sf=((parseFloat(room.L)||0)*(parseFloat(room.W)||0)).toFixed(0);
+    const rt=roomTotal(room.id);const done=Object.keys(S.sel[room.id]||{}).length>0;
+    const tier=Object.values(S.sel[room.id]||{}).find(s=>s.tier)?.tier||S.setup.globalTier;
+    return`<tr>
+      <td><strong>${room.name||room.type}</strong></td>
+      <td style="font-size:11px;color:var(--g400)">${room.type}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:11px">${sf} SF</td>
+      <td>${tier?`<span class="tbadge" style="background:${tier<=2?'#EFF6FF':tier===3?'#ECFDF5':tier===4?'#FFFBEB':'#FAF5FF'};color:${TCOLORS[tier]}">T${tier} ${TNAMES[tier]}</span>`:'—'}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-weight:600">${rt>0?'$'+fmt(rt):'—'}</td>
+      <td><span class="sbadge ${done?'sbadge-done':'sbadge-pend'}">${done?'✓ Started':'○ Pending'}</span></td>
+      <td><button class="go-btn" onclick="navTo('room',${i})">Go →</button></td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══ DIVISION SUMMARY ═══
+const CAT_GROUPS={'floor-hardwood':'Flooring','floor-lvp':'Flooring','floor-tile':'Flooring','floor-carpet':'Flooring','cab-base-upper':'Cabinetry','cab-island':'Cabinetry','cab-vanity':'Cabinetry','cab-hood':'Cabinetry','ct-stone':'Countertops','ct-backsplash':'Countertops','plumb-kitchen-faucet':'Plumbing','plumb-powder-fixture':'Plumbing','plumb-master-sink':'Plumbing','plumb-master-tub':'Plumbing','plumb-master-shower':'Plumbing','plumb-sec-sink':'Plumbing','plumb-sec-tub':'Plumbing','plumb-sec-shower':'Plumbing','plumb-toilet':'Plumbing','plumb-handheld':'Plumbing','plumb-rainhead':'Plumbing','plumb-pot-filler':'Plumbing','sink-kitchen-top':'Plumbing/Sinks','sink-kitchen-under':'Plumbing/Sinks','sink-kitchen-granite':'Plumbing/Sinks','tub-master':'Plumbing/Sinks','tub-60inch':'Plumbing/Sinks','bath-shower-glass':'Bath Accessories','bath-towel-bar':'Bath Accessories','bath-mirror':'Bath Accessories','light-chandelier-low':'Lighting','light-chandelier-high':'Lighting','light-vanity':'Lighting','light-pendant':'Lighting','light-ceiling-fan':'Lighting','light-flush-mount':'Lighting','light-exterior-wall':'Lighting','light-wall-sconce':'Lighting','light-island':'Lighting','tlp-can-6':'TLP Electrical','tlp-can-4':'TLP Electrical','tlp-dimmer':'TLP Electrical','tlp-bulb':'TLP Electrical','tlp-smoke':'TLP Electrical','appl-refrigerator':'Appliances','appl-range':'Appliances','appl-dishwasher':'Appliances','appl-microwave':'Appliances','appl-range-hood':'Appliances','appl-washer-dryer':'Appliances','hw-front-entry':'Hardware','hw-privacy-knob':'Hardware','hw-passage-knob':'Hardware','hw-dead-bolt':'Hardware','hw-entry-set':'Hardware','hw-pocket-door':'Hardware','hw-hinge-stop':'Hardware','hw-wall-stop':'Hardware','paint-walls':'Paint','paint-ceiling':'Paint','tile-shower-wall':'Tile','fireplace-box':'Fireplace','fireplace-mantel':'Fireplace','stair-tread-riser':'Stairs','stair-newel':'Stairs','stair-spindle':'Stairs','stair-handrail':'Stairs','shelf-wire-12':'Shelving','shelf-mdf-14':'Shelving','wh-electric-std':'Water Heater','wh-gas-tankless':'Water Heater'};
+
+function renderDivision(){
+  const divs={};
+  S.rooms.forEach(room=>{Object.entries(S.sel[room.id]||{}).forEach(([catId,catSel])=>{const grp=CAT_GROUPS[catId]||'Other';divs[grp]=(divs[grp]||0)+(catSel.total||0);});});
+  const grand=Object.values(divs).reduce((a,b)=>a+b,0);
+  si('div-grand','$'+fmt(grand));
+  const tb=document.getElementById('div-tbody');if(!tb)return;
+  const entries=Object.entries(divs).sort((a,b)=>b[1]-a[1]);
+  const maxVal=entries.length?entries[0][1]:1;
+  if(!entries.length){tb.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--g400);padding:2rem">No selections made yet</td></tr>';return;}
+  tb.innerHTML=entries.map(([grp,tot])=>{
+    const pct=grand>0?((tot/grand)*100).toFixed(1):0;
+    const bw=maxVal>0?Math.max((tot/maxVal)*100,3).toFixed(0):0;
+    return`<tr><td><strong>${grp}</strong></td><td class="div-total">$${fmt(tot)}</td><td class="div-pct">${pct}%</td>
+      <td><div class="div-bar-track"><div class="div-bar-fill" style="width:${bw}%"></div></div></td></tr>`;
+  }).join('');
+}
+
+// ═══ PRICING TABLES (Admin) ═══
+const PRICING_CATS=[
+  {group:'Lighting',cats:[{id:'light-chandelier-low',name:'Chandelier (Low/5-bulb)',unit:'EA'},{id:'light-chandelier-high',name:'Chandelier (High/8-bulb)',unit:'EA'},{id:'light-vanity',name:'Vanity Lights',unit:'EA'},{id:'light-pendant',name:'Pendants',unit:'EA'},{id:'light-ceiling-fan',name:'Ceiling Fan',unit:'EA'},{id:'light-flush-mount',name:'Flush Mount Light',unit:'EA'},{id:'light-wall-sconce',name:'Wall Sconce',unit:'EA'},{id:'light-island',name:'Island Lights',unit:'EA'}]},
+  {group:'TLP Supplied Electrical (Fixed Rate)',cats:[{id:'tlp-can-6',name:'6" Recessed Can (installed)',unit:'EA',tlp:true},{id:'tlp-can-4',name:'4" Recessed Can (installed)',unit:'EA',tlp:true},{id:'tlp-dimmer',name:'Dimmer Switch',unit:'EA',tlp:true},{id:'tlp-bulb',name:'Bulb',unit:'EA',tlp:true},{id:'tlp-smoke',name:'Smoke Detector Combo',unit:'EA',tlp:true}]},
+  {group:'Plumbing Fixtures',cats:[{id:'plumb-kitchen-faucet',name:'Kitchen Faucet',unit:'EA'},{id:'plumb-master-sink',name:'Master Bath Sink Fixture',unit:'PC'},{id:'plumb-master-tub',name:'Master Bath Tub Fixture',unit:'PC'},{id:'plumb-master-shower',name:'Master Bath Shower Fixture',unit:'EA'},{id:'plumb-sec-sink',name:'Secondary Bath Sink Fixture',unit:'PC'},{id:'plumb-sec-shower',name:'Secondary Bath Shower Fixture',unit:'EA'},{id:'plumb-toilet',name:'Toilet (tank + lid)',unit:'EA'},{id:'plumb-handheld',name:'Master Hand Held',unit:'EA'},{id:'plumb-rainhead',name:'Master Rain Head',unit:'EA'},{id:'plumb-pot-filler',name:'Pot Filler',unit:'EA'}]},
+  {group:'Sinks & Tubs',cats:[{id:'sink-kitchen-granite',name:'Kitchen Granite Undermount',unit:'EA'},{id:'sink-kitchen-apron',name:'Kitchen Apron/Farmhouse',unit:'EA'},{id:'sink-bath-standard',name:'Bath Sink',unit:'EA'},{id:'tub-master',name:'Master Tub (drop-in)',unit:'EA'},{id:'tub-60inch',name:'60" Bath Tub',unit:'EA'}]},
+  {group:'Hardware',cats:[{id:'hw-front-entry',name:'Front Door Entry Set',unit:'EA'},{id:'hw-privacy-knob',name:'Privacy Knob (Bed/Bath)',unit:'EA'},{id:'hw-passage-knob',name:'Passage Knob (Closet/Hall)',unit:'EA'},{id:'hw-dead-bolt',name:'Dead Bolt',unit:'EA'},{id:'hw-entry-set',name:'Entry Set (Lever + Deadbolt)',unit:'EA'},{id:'hw-pocket-door',name:'Pocket Door (passive)',unit:'EA'}]},
+  {group:'Cabinets (per LF)',cats:[{id:'cab-base-upper',name:'Base & Upper Cabinets',unit:'LF'},{id:'cab-island',name:'Island Cabinets',unit:'LF'},{id:'cab-vanity',name:'Vanity Cabinets (Bath)',unit:'LF'}]},
+  {group:'Flooring (per SF)',cats:[{id:'floor-hardwood',name:'Hardwood Flooring',unit:'SF'},{id:'floor-lvp',name:'LVP / Luxury Vinyl',unit:'SF'},{id:'floor-tile',name:'Tile Flooring',unit:'SF'},{id:'floor-carpet',name:'Carpet with Pad',unit:'SF'}]},
+  {group:'Countertops (per SF)',cats:[{id:'ct-stone',name:'Stone Countertop',unit:'SF'},{id:'ct-backsplash',name:'Backsplash Tile',unit:'SF'}]},
+  {group:'Bath Accessories',cats:[{id:'bath-shower-glass',name:'Shower Glass Enclosure',unit:'EA'},{id:'bath-towel-bar',name:'Towel Bar',unit:'EA'},{id:'bath-mirror',name:'Mirror',unit:'EA'}]},
+  {group:'Water Heater',cats:[{id:'wh-electric-std',name:'Electric (Standard)',unit:'EA'},{id:'wh-electric-tankless',name:'Electric Tankless',unit:'EA'},{id:'wh-gas-std',name:'Gas (Standard)',unit:'EA'},{id:'wh-gas-tankless',name:'Gas Tankless',unit:'EA'}]},
+  {group:'Stairs',cats:[{id:'stair-tread-riser',name:'Tread/Riser Set',unit:'EA'},{id:'stair-newel',name:'Newel Post',unit:'EA'},{id:'stair-spindle',name:'Spindle',unit:'EA'},{id:'stair-handrail',name:'Handrail',unit:'LF'}]},
+  {group:'Appliances (pending Perplexity research)',cats:[{id:'appl-refrigerator',name:'Refrigerator',unit:'EA'},{id:'appl-range',name:'Range/Cooktop',unit:'EA'},{id:'appl-range-hood',name:'Range Hood',unit:'EA'},{id:'appl-dishwasher',name:'Dishwasher',unit:'EA'},{id:'appl-microwave',name:'Microwave',unit:'EA'},{id:'appl-washer-dryer',name:'Washer/Dryer Package',unit:'PKG'}]},
+];
+
+function renderPricingTables(){
+  const c=document.getElementById('pricing-content');if(!c)return;
+  c.innerHTML=PRICING_CATS.map(group=>`
+    <div class="ssec"><div class="ssec-title">${group.group}</div><div class="pt-grid">
+      <table class="pt-table"><thead><tr>
+        <th style="text-align:left;min-width:190px">Item</th>
+        <th style="color:var(--t1)">T1 Contractor</th>
+        <th style="color:var(--t2)">T2 Good</th>
+        <th style="color:var(--t3);background:#ECFDF5">T3 Better ★</th>
+        <th style="color:var(--t4)">T4 Best</th>
+        <th style="color:var(--t5)">T5 Premium</th>
+        <th>Unit</th><th>Source</th>
+      </tr></thead><tbody>
+      ${group.cats.map(cat=>`<tr${cat.tlp?' class="tlp-row"':''}>
+        <td style="font-weight:500;font-size:12px">${cat.name}${cat.tlp?' <span style="font-size:9px;color:#92400E;background:#FFF7ED;padding:1px 5px;border-radius:3px">TLP Fixed</span>':''}</td>
+        ${[1,2,3,4,5].map(t=>{const master=MASTER_PRICING[cat.id]?.['t'+t];const custom=S.pricing[cat.id]?.['t'+t];const val=custom!=null?custom:master;
+          return`<td${t===3?' style="background:#ECFDF5"':''}><input type="number" value="${val!=null?val:''}" placeholder="—" onblur="savePriceRate('${cat.id}',${t},this.value)"></td>`;}).join('')}
+        <td style="font-size:11px;color:var(--g400);text-align:center">${cat.unit}</td>
+        <td style="font-size:10px;color:var(--g400)">${MASTER_PRICING[cat.id]?'TLP Historical':'Pending'}</td>
+      </tr>`).join('')}
+      </tbody></table>
+    </div></div>`).join('');
+}
+function savePriceRate(catId,tier,val){if(!S.pricing[catId])S.pricing[catId]={};S.pricing[catId]['t'+tier]=parseFloat(val)||null;save();}
+
+// ═══ FIELD REPORT ═══
+function printReport(){
+  const tot=allTotal(),bud=S.setup.bud||0,rem=bud-tot;
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>TLP Field Report</title>
+  <style>body{font-family:Arial,sans-serif;font-size:12px;max-width:800px;margin:2rem auto;color:#222}
+  h1{font-family:Georgia,serif;font-size:22px;color:#1B2A47}
+  .sub{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#C8A951}
+  .warn{font-size:11px;color:#D97706;font-style:italic}
+  .meta{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin:1rem 0;font-size:12px}
+  .ml{font-weight:bold;color:#666}
+  table{width:100%;border-collapse:collapse;margin:1rem 0}
+  th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#888;padding:5px 8px;border-bottom:2px solid #ddd}
+  td{padding:6px 8px;border-bottom:1px solid #eee}
+  tfoot td{font-weight:bold;border-top:2px solid #1B2A47;color:#1B2A47}
+  .flags{background:#FEF3C7;border:1px solid #FDE68A;border-radius:6px;padding:10px;margin:1rem 0}
+  .footer{font-size:10px;color:#999;border-top:1px solid #eee;padding-top:1rem;text-align:center;line-height:1.8}</style></head><body>
+  <div style="border-bottom:2px solid #1B2A47;padding-bottom:1rem;margin-bottom:1rem">
+    <h1>TLP BUILDERS LLC</h1><div class="sub">High-Level Selection Summary</div>
+    <div class="warn">Subject to full estimator review — this is not a bid or contract</div>
+  </div>
+  <div class="meta">
+    <div><span class="ml">Client:</span> ${S.setup.c1||'—'}${S.setup.c2?' & '+S.setup.c2:''}</div>
+    <div><span class="ml">Project:</span> ${S.setup.addr||'—'}</div>
+    <div><span class="ml">Project ID:</span> ${S.setup.pid||'—'}</div>
+    <div><span class="ml">Date:</span> ${S.setup.dt||new Date().toLocaleDateString()}</div>
+    <div><span class="ml">Selections Budget:</span> $${fmt(bud)}</div>
+    <div><span class="ml">Global Tier:</span> T${S.setup.globalTier} ${TNAMES[S.setup.globalTier]||'Better'}</div>
+  </div>
+  <table><thead><tr><th>Room</th><th>Type</th><th>SF</th><th>Tier</th><th>Est. Cost</th></tr></thead>
+  <tbody>${S.rooms.map(room=>{
+    const sf=((parseFloat(room.L)||0)*(parseFloat(room.W)||0)).toFixed(0);
+    const rt=roomTotal(room.id);const tier=Object.values(S.sel[room.id]||{}).find(s=>s.tier)?.tier||S.setup.globalTier;
+    return`<tr><td><b>${room.name||room.type}</b></td><td>${room.type}</td><td>${sf} SF</td><td>T${tier} ${TNAMES[tier]||''}</td><td><b>$${fmt(rt)}</b></td></tr>`;
+  }).join('')}</tbody>
+  <tfoot><tr><td>SELECTIONS TOTAL</td><td></td><td></td><td></td><td>$${fmt(tot)}</td></tr>
+  <tr><td>SELECTIONS BUDGET</td><td></td><td></td><td></td><td>$${fmt(bud)}</td></tr>
+  <tr><td>VARIANCE</td><td></td><td></td><td></td><td>${rem>=0?'$'+fmt(rem)+' remaining':'($'+fmt(Math.abs(rem))+') over'}</td></tr></tfoot></table>
+  <div class="flags"><b>Flags Requiring Attention:</b><br>
+    ⚑ Appliance pricing pending — all appliance totals are $0 placeholder<br>
+    ⚑ T5 items require actual product verification before ordering<br>
+    ⚑ Flooring/countertop rates are placeholder estimates pending Perplexity research
+  </div>
+  <div class="footer">DISCLAIMER: These are estimated allowances based on tier selections and room dimensions captured during walkthrough.
+    This document is not a bid, contract, or guarantee of final cost. Subject to full estimator review and vendor confirmations.
+    Actual costs may vary based on final plans, product selections, and market conditions at time of construction.<br><br>
+    TLP Builders LLC · wayne@3TLP.com · 615-456-9721 · 1026 Valley Forge Dr, Arrington, TN 37014<br>
+    Prepared by: TLP Home Selection Estimator Prototype v1.0 · ${new Date().toLocaleDateString()}
+  </div></body></html>`);
+  win.document.close();setTimeout(()=>win.print(),500);
+}
+
+// ═══ CSV EXPORT ═══
+function exportCSV(){
+  let csv='Project ID,Client,Room,Category,Tier,Locked,Qty,Rate,Total,Brand,Vendor\n';
+  const pid=S.setup.pid||'TLP-2026-001';
+  const client=(S.setup.c1||'')+(S.setup.c2?' & '+S.setup.c2:'');
+  S.rooms.forEach(room=>{
+    Object.entries(S.sel[room.id]||{}).forEach(([catId,item])=>{
+      const rate=resolveRate(catId,room.id);
+      csv+=`"${pid}","${client}","${room.name||room.type}","${catId}",${item.tier||S.setup.globalTier},${item.locked?'YES':'NO'},${item.qty||1},${rate.rate||0},${item.total||0},"${item.actualBrand||''}","${item.actualVendor||''}"\n`;
+    });
+  });
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='TLP_Selections_'+(S.setup.pid||'Export')+'_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+}
+
+// ═══ STORAGE ═══
+function save(){try{localStorage.setItem('tlp-v1',JSON.stringify(S));}catch(e){}}
+function loadState(){
+  try{
+    const saved=localStorage.getItem('tlp-v1');if(!saved)return;
+    const d=JSON.parse(saved);
+    if(d.setup)S.setup=Object.assign(S.setup,d.setup);
+    if(d.rooms)S.rooms=d.rooms;if(d.sel)S.sel=d.sel;if(d.pricing)S.pricing=d.pricing;
+  }catch(e){}
+}
+
+// ═══ UTILS ═══
+const fmt=n=>Math.round(n||0).toLocaleString();
+const fmtK=n=>n>=1000?'$'+(n/1000).toFixed(0)+'K':'$'+Math.round(n||0);
+const si=(id,txt)=>{const e=document.getElementById(id);if(e)e.textContent=txt;};
+const v=id=>document.getElementById(id)?.value||'';
+
+// ═══ INIT ═══
+loadState();
+const setupMap={c1:'s-c1',c2:'s-c2',ph:'s-ph',em:'s-em',addr:'s-addr',pid:'s-pid',dt:'s-dt',bud:'s-bud',totalBud:'s-total-bud',ch1:'s-ch1',ch2:'s-ch2',ch3:'s-ch3'};
+Object.entries(setupMap).forEach(([key,elId])=>{const el=document.getElementById(elId);if(el&&S.setup[key])el.value=S.setup[key];});
+const flEl=document.getElementById('s-fl');if(flEl)flEl.value=S.setup.fl||2;
+if(!S.rooms.length){INIT_ROOMS.forEach(r=>{S.rooms.push(r);S.sel[r.id]={};});}
+else{S.rooms.forEach(r=>{if(!S.sel[r.id])S.sel[r.id]={};});}
+renderRoomTable();updateRoomsNav();updateBar();buildGlobalTierSelector();
+console.log('TLP Prototype v1.0 ready. Rooms:',S.rooms.length,'Global tier: T'+S.setup.globalTier);
+</script>
+</body>
+</html>
