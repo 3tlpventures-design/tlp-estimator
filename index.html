@@ -314,6 +314,7 @@ html,body{height:100%;font-family:'Jost',sans-serif;background:var(--cream);colo
   <div class="rint-wrap">
     <table class="rint-table">
       <thead><tr>
+        <th style="width:32px"><input type="checkbox" id="room-chk-all" onchange="toggleAllRoomChk(this.checked)" title="Select all"></th>
         <th style="min-width:160px">Room Name</th>
         <th style="min-width:150px">Type</th>
         <th style="width:65px">L (ft)</th>
@@ -327,6 +328,7 @@ html,body{height:100%;font-family:'Jost',sans-serif;background:var(--cream);colo
     </table>
   </div>
   <button class="add-row-btn" onclick="addRoom()">+ Add Room</button>
+  <button class="add-row-btn" style="margin-left:.5rem;color:#C0392B;border-color:#FECACA;" onclick="deleteSelectedRooms()">✕ Delete Selected</button>
 </div>
 <div style="text-align:right"><button class="btn btn-gold" onclick="goFirstRoom()">Next: Room Selections →</button></div>
 </div>
@@ -561,6 +563,7 @@ const INIT_ROOMS=[
   {id:'r7',name:"Bedroom 2 Bath",type:'Bathroom — Guest',L:'12',W:'10',H:'10',location:'Front Left'},
   {id:'r8',name:'Laundry/Mudroom',type:'Laundry/Mudroom',L:'14',W:'10',H:'10',location:'Mid Left'},
 ];
+const INIT_IDS=new Set(INIT_ROOMS.map(r=>r.id));
 
 // ═══ NAVIGATION ═══
 function navTo(page,roomIdx){
@@ -618,20 +621,37 @@ function renderRoomTable(){
     const typeOpts=ROOM_TYPES.map(t=>`<option${t===room.type?' selected':''}>${t}</option>`).join('');
     const locOpts=LOCATIONS.map(l=>`<option${l===room.location?' selected':''}>${l}</option>`).join('');
     tr.innerHTML=`
+      <td><input type="checkbox" class="room-chk" data-id="${room.id}"></td>
       <td><input value="${room.name}" placeholder="e.g. Primary Suite" oninput="upRoom(${i},'name',this.value)"></td>
       <td><select onchange="upRoom(${i},'type',this.value)">${typeOpts}</select></td>
       <td><input type="number" value="${room.L}" placeholder="0" oninput="upRoom(${i},'L',this.value)"></td>
       <td><input type="number" value="${room.W}" placeholder="0" oninput="upRoom(${i},'W',this.value)"></td>
       <td><input type="number" value="${room.H}" placeholder="10" oninput="upRoom(${i},'H',this.value)"></td>
       <td><select onchange="upRoom(${i},'location',this.value)">${locOpts}</select></td>
-      <td class="rint-sf">${sf>0?sf.toFixed(0)+' SF':'—'}</td>
-      <td><button class="del-btn" onclick="delRoom(${i})">×</button></td>`;
+      <td class="rint-sf" id="rint-sf-${i}">${sf>0?sf.toFixed(0)+' SF':'—'}</td>
+      <td>${INIT_IDS.has(room.id)?'&nbsp;':'<button class="del-btn" onclick="delRoom('+i+')">×</button>'}</td>`;
     tb.appendChild(tr);
   });
 }
 
-function upRoom(i,f,val){S.rooms[i][f]=val;renderRoomTable();updateRoomsNav();save();}
+function upRoom(i,f,val){
+  S.rooms[i][f]=val;
+  const sfEl=document.getElementById('rint-sf-'+i);
+  if(sfEl){const sf=(parseFloat(S.rooms[i].L)||0)*(parseFloat(S.rooms[i].W)||0);sfEl.textContent=sf>0?sf.toFixed(0)+' SF':'—';}
+  updateRoomsNav();save();
+}
 function delRoom(i){if(!confirm('Remove this room?'))return;S.rooms.splice(i,1);renderRoomTable();updateRoomsNav();save();}
+function toggleAllRoomChk(checked){document.querySelectorAll('.room-chk').forEach(c=>c.checked=checked);}
+function deleteSelectedRooms(){
+  const checked=[...document.querySelectorAll('.room-chk:checked')];
+  if(!checked.length){alert('No rooms selected.');return;}
+  if(!confirm(`Remove ${checked.length} room${checked.length>1?'s':''}?`))return;
+  const ids=new Set(checked.map(c=>c.dataset.id));
+  ids.forEach(id=>delete S.sel[id]);
+  S.rooms=S.rooms.filter(r=>!ids.has(r.id));
+  const allChk=document.getElementById('room-chk-all');if(allChk)allChk.checked=false;
+  renderRoomTable();updateRoomsNav();save();
+}
 
 function updateRoomsNav(){
   const label=document.getElementById('rooms-nav-label');
