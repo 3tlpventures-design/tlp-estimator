@@ -76,10 +76,14 @@ Each room gets a dedicated selection sheet with cards for:
 
 ## Files
 
-| File | Description |
+| Path | Description |
 |---|---|
 | `index.html` | Complete application — all HTML, CSS, and JavaScript |
-| `README.md` | This file |
+| `pricing.json` | Authoritative pricing table loaded at runtime. Build artifact — do not hand-edit |
+| `data/` | Source-of-truth spreadsheets. See `data/README.md` |
+| `scripts/` | Python build pipeline (`build_pricing.py`, `config.py`) |
+| `tests/` | Round-trip tests against the captured pricing oracle |
+| `CHANGELOG.md` | Notable changes |
 
 ---
 
@@ -92,6 +96,27 @@ Each room gets a dedicated selection sheet with cards for:
 5. Review totals in **Dashboard** and **Division Summary**
 
 Data persists in `localStorage`. No account or internet connection required.
+
+---
+
+## Updating pricing
+
+Pricing lives in `data/Allowance_Pricing_Levels.xlsx` and
+`data/BLANK_Allowances_3_5_2024.xlsm`. Edit the spreadsheet, then regenerate
+the JSON the site loads:
+
+```
+pip install -r scripts/requirements.txt
+python scripts/build_pricing.py
+pytest tests/
+```
+
+Commit both the updated spreadsheet and the regenerated `pricing.json`.
+GitHub Pages picks up the new rates on next deploy. The build script prints
+category counts and per-tier coverage only — it never echoes raw prices.
+
+If `pricing.json` fails to load at runtime, `index.html` falls back to its
+inline copy of `MASTER_PRICING` so the site keeps working.
 
 ---
 
