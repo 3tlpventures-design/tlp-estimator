@@ -431,6 +431,8 @@ const TNAMES={1:'Contractor',2:'Good',3:'Better',4:'Best',5:'Premium'};
 const TCOLORS={1:'var(--t1)',2:'var(--t2)',3:'var(--t3)',4:'var(--t4)',5:'var(--t5)'};
 const TDESC={1:'Investor/Flip/Rental. Function only.',2:'Entry owner-occupied. Production standard.',3:'Move-up buyer. Upper-mid quality. TLP default.',4:'Semi-custom luxury finish level.',5:'Full custom. Owner selects exact product and price.'};
 
+// FALLBACK ONLY — do not remove. pricing.json (loaded at init) is authoritative;
+// this inline table stays for offline use and broken-deploy resilience.
 const MASTER_PRICING={
   // LIGHTS (TLP Historical — Allowance_Pricing_Levels.xlsx)
   'light-chandelier-low':{t1:136.56,t2:191.19,t3:273.13,t4:355.06,t5:null},
@@ -1428,14 +1430,29 @@ const si=(id,txt)=>{const e=document.getElementById(id);if(e)e.textContent=txt;}
 const v=id=>document.getElementById(id)?.value||'';
 
 // ═══ INIT ═══
-loadState();
-const setupMap={c1:'s-c1',c2:'s-c2',ph:'s-ph',em:'s-em',addr:'s-addr',pid:'s-pid',dt:'s-dt',bud:'s-bud',totalBud:'s-total-bud',ch1:'s-ch1',ch2:'s-ch2',ch3:'s-ch3'};
-Object.entries(setupMap).forEach(([key,elId])=>{const el=document.getElementById(elId);if(el&&S.setup[key])el.value=S.setup[key];});
-const flEl=document.getElementById('s-fl');if(flEl)flEl.value=S.setup.fl||2;
-if(!S.rooms.length){INIT_ROOMS.forEach(r=>{S.rooms.push(r);S.sel[r.id]={};});}
-else{S.rooms.forEach(r=>{if(!S.sel[r.id])S.sel[r.id]={};});}
-renderRoomTable();updateRoomsNav();updateBar();buildGlobalTierSelector();
-console.log('TLP Prototype v1.0 ready. Rooms:',S.rooms.length,'Global tier: T'+S.setup.globalTier);
+// pricing.json is authoritative; inline MASTER_PRICING above is fallback only.
+async function loadPricing(){
+  try{
+    const res=await fetch('pricing.json',{cache:'no-store'});
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const fetched=await res.json();
+    Object.assign(MASTER_PRICING,fetched);
+    console.log('Pricing loaded from pricing.json. Categories:',Object.keys(fetched).length);
+  }catch(e){
+    console.warn('Using inline fallback pricing. Reason:',e.message);
+  }
+}
+
+loadPricing().then(()=>{
+  loadState();
+  const setupMap={c1:'s-c1',c2:'s-c2',ph:'s-ph',em:'s-em',addr:'s-addr',pid:'s-pid',dt:'s-dt',bud:'s-bud',totalBud:'s-total-bud',ch1:'s-ch1',ch2:'s-ch2',ch3:'s-ch3'};
+  Object.entries(setupMap).forEach(([key,elId])=>{const el=document.getElementById(elId);if(el&&S.setup[key])el.value=S.setup[key];});
+  const flEl=document.getElementById('s-fl');if(flEl)flEl.value=S.setup.fl||2;
+  if(!S.rooms.length){INIT_ROOMS.forEach(r=>{S.rooms.push(r);S.sel[r.id]={};});}
+  else{S.rooms.forEach(r=>{if(!S.sel[r.id])S.sel[r.id]={};});}
+  renderRoomTable();updateRoomsNav();updateBar();buildGlobalTierSelector();
+  console.log('TLP Prototype v1.0 ready. Rooms:',S.rooms.length,'Global tier: T'+S.setup.globalTier);
+});
 </script>
 </body>
 </html>
