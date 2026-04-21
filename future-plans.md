@@ -1,183 +1,263 @@
 # TLP Estimator — Future Plans
 
-Forward-looking roadmap. Phase 1 (pricing.json loaded at runtime from
-Dad-editable spreadsheets) is done. Everything below is directional — each
-phase will get its own concrete plan + atomic-commit sequence before we
-start building.
+Forward-looking roadmap. Phase 1 (`pricing.json` loaded at runtime from
+Dad-editable spreadsheets) is live. Everything below is directional — each
+phase gets its own concrete plan + atomic-commit sequence before we build.
+
+**Rewritten April 2026** after seeing Wayne's actual workbook
+(`data/reference/TLP MASTER PRICING TABLE.xlsx`). Large parts of what was
+originally sketched here as "future" are already designed on his side.
+This version distinguishes **what we build** (customer-facing estimator)
+from **what Wayne/Cody builds** (TLP cost-intelligence backend).
 
 ---
 
-## Vision (from Wayne)
+## Two systems, one business
 
-> "I'm building it for now so once I get through this past two years of data
-> it will be a badass pricing table built off our real cost. Should tighten
-> the shit out of estimating. Scheduling, coordinating. This sheet I built
-> is gonna be built with a code that runs on routines to scrape the internet
-> for pricing to keep up with commodities, to watch trends in the pricing of
-> the commodities to put in an increase or decrease factor with a cushion to
-> keep from lowering prices too quickly — but to take into consideration the
-> cost of a commodity 3 months in the future that would help ensure the
-> estimate price last known could be increased by that predict item."
+| | **This repo** — the estimator | **Wayne's workbook** — the cost database |
+|---|---|---|
+| Audience | Clients, salespeople, field estimators | Owner, purchasing, Wayne |
+| Shape | 79 categories × 5 tiers (`pricing.json`) | Invoice rows × cost columns |
+| Question it answers | "What does a Tier 3 vanity light cost the client?" | "What did a 2×12 SYP cost on Kupin Aug 2025?" |
+| Maintained by | Chandler + Claude (this session) | Wayne + Cody (another Claude instance, via Python/gspread) |
+| Update cadence | Whenever spreadsheet is edited | Every new invoice + weekly market scrape |
+| Source of truth for | Customer allowance tiers | Real TLP paid costs + market commodity prices |
 
-Translated:
-
-1. Replace guess-work with 2 years of real TLP job-cost data.
-2. Automate price updates for commodity-driven line items.
-3. Smooth out price changes (hysteresis) so estimates don't whipsaw.
-4. Forward-project prices ~3 months so estimates reflect *build-time* cost,
-   not *estimate-time* cost.
+**These systems meet in Phase 2 (see below).** Before that, they are
+parallel tracks. Wayne is already deep into his side — the "Phase 4
+scraping" and "Phase 5 trend analysis" I originally speculated about here
+are literally designed in his workbook's MARKET INDEX sheet and his Flex
+Rules documentation. Much of this roadmap is now about *consuming* what
+he builds, not building it ourselves.
 
 ---
 
-## Core architectural decision: TLP cost basis vs. customer allowances
+## What Wayne has already designed
 
-Not every line item should be scraped from the internet. Two classes:
+Documented verbatim from his workbook's README tab. Worth internalizing
+before writing any follow-on code.
 
-| Class | Examples | Source of truth | Auto-update? |
-|---|---|---|---|
-| **TLP cost basis** — what TLP charges | Labor, TLP-supplied electrical (`tlp-*` today — cans, dimmers, bulbs, smoke detectors), TLP-stocked hardware (hinge stops, wall stops, sliding door hardware) | Wayne's real job-cost data (the 2-year rollup) | **No.** Human-reviewed only. Proprietary. |
-| **Customer allowances** — budget for items the customer picks and buys from a retailer | Light fixtures, plumbing fixtures, cabinets, appliances, flooring, countertops, tile | Market pricing (commodity indices + retailer signals) | **Yes** — eventually. |
+### Four-stage estimate pipeline
 
-The `tlpFixed: true` flag in `pricing.json` already marks TLP cost basis
-entries (7 today). That flag becomes the gate: scraped updates will only
-touch entries *without* `tlpFixed`.
+| Stage | What it is | Pricing source | Valid for | Trigger |
+|---|---|---|---|---|
+| **Estimate** | Best guess | This table + flex % + fluff buffer | 30 days | Client inquiry |
+| **Bid** | Locked number | Actual vendor quotes override table | 30 days | Selections complete AND start within 30 days |
+| **Contract** | Signed bid | Locked, change-order only | Project life | Client signature |
+| **Actual** | What was paid | Real invoices — feeds the table | Permanent | Invoice received |
 
-**Non-negotiable:** scraped market data must never overwrite TLP's real
-cost data. Pipelines will have separate inputs (Wayne's spreadsheet vs.
-commodity feed) and the merger is one-way — TLP cost basis always wins.
+**Hard rule:** an estimate cannot become a bid until (1) all selections are
+complete and (2) the project starts within 30 days so suppliers can lock.
+Our current estimator is purely an Estimate-stage tool. Bid/Contract/Actual
+are Phase 2+ territory.
 
----
+### Flex Rules (materials repricing)
 
-## Phase 2 — Backend + persistence (from original plan)
+| # | Trigger | Action |
+|---|---|---|
+| 1 Hold | Market decreased <8% | Do nothing, keep the margin |
+| 2 Partial | Market decreased 8–15%, **sustained 45+ days** | Apply 50% of the decrease + flag for review |
+| 3 Full | Market decreased >15%, **sustained 60+ days** | Apply full decrease, reset benchmark |
+| 4 Lock | Item is in active bid or contract | Never adjust |
+| 5 Forward | 3 consecutive months of price **increases** | Add forward projection = trend% × months-until-project-start |
+| ⚠ COVID Alert | Vendors reduce lock-in below 14 days | System alert, stop relying on table, get live quotes |
 
-Lands the storage layer the later phases need.
+### Cost Type taxonomy
 
-- Cloudflare Worker serves `/api/pricing` (authenticated) and `/api/bids`.
-- D1 database behind it. Bids persist server-side so multiple devices /
-  users see the same data.
-- Split `index.html` into `index.html + app.js + styles.css`.
-- Admin page behind auth for editing pricing without touching Excel.
-- **Effective-dated rates** — every bid locks to the pricing row that
-  existed when the bid was created. Future rate changes never retroactively
-  alter old bids. This is the schema change that unlocks everything below.
+Every line item carries a Cost Type. More granular than our current
+`tlpFixed` boolean:
 
-Scope discipline: Phase 2 does not touch scraping, ML, or predictions. It
-just moves the current Phase 1 artifacts behind an API with history.
+| Cost Type | Where it lives | Example |
+|---|---|---|
+| Materials | MATERIALS tab + MASTER PRICING TABLE | Lumber package, priced per BF/LF/EA |
+| Labor | LABOR tab + MASTER PRICING TABLE | Framing crew, per hour or LS |
+| Both | MASTER PRICING TABLE only | Sub who supplies + installs with no breakdown |
+| Equipment | MASTER PRICING TABLE only | Dumpster, crane, lift rental |
+| Subcontract | MASTER PRICING TABLE only | Fixed-price sub scope, no breakdown known |
 
----
+Our `pricing.json` only represents `Materials` + `Both` right now. Labor is
+implicit in most customer-allowance rates. If we ever want to decompose
+allowances into per-room labor + materials, we adopt this taxonomy.
 
-## Phase 3 — Ingest 2 years of TLP job-cost data
+### Material source priority
 
-Turn Wayne's actual past jobs into the TLP cost basis table.
+1. The known-paid table (never scrape what we've already paid for)
+2. Menards (LVLs, engineered lumber)
+3. Home Depot API (dimensional lumber, hardware, appliances, commodities)
+4. Builders FirstSource (full lumber packages, trusses)
+5. Live vendor quote — estimator gets it and updates table
 
-- Decide the schema: what makes a "cost point" (job, date, category, tier,
-  actual rate, quantity, location)?
-- Import pipeline — likely another Excel → normalized-table pipeline, same
-  shape as the Phase 1 pricing loader but landing into D1 instead of a JSON.
-- Rollup rules: how do we go from N historical data points per category to
-  one rate per tier? Probably weighted by recency, maybe filter outliers,
-  maybe per-region if the data supports it. These are judgment calls Wayne
-  should own — the pipeline just needs to expose the knobs.
-- **Output:** the `tlpFixed` / TLP-cost rows in `pricing.json` get replaced
-  by data-backed rates. Customer-allowance rows unchanged.
+Trusses in particular get a 90-day refresh rule because they're
+manufactured assemblies, not raw lumber. Don't trust scraped prices for
+them.
 
-Risk to watch: garbage-in. If past job data has bad categorization or
-mismatched units, the rollup propagates the mess. Build validation and a
-"show me the source rows behind this rate" UI early.
+### Other structures already in his workbook
 
----
-
-## Phase 4 — Allowance scraping
-
-Automate price updates for customer-allowance categories only.
-
-- **Sources.** Start narrow — pick 2–3 categories with the most scrape-able
-  data (appliances on Home Depot / Lowe's, lumber index, copper/aluminum for
-  wiring and plumbing). Build one scraper, learn what breaks, then expand.
-- **Schedule.** Nightly or weekly. Store raw observations in a time-series
-  table — `(category, source, date, observed_rate)`. The scraper writes raw
-  data only; it never writes directly to `pricing.json`.
-- **Review gate before promotion to live pricing.** A scraped price doesn't
-  update an allowance until a human (or a trend-analysis job, see Phase 5)
-  approves it. Guards against scraper errors, ToS-driven site changes, and
-  one-off price glitches.
-- **Legal / ToS.** Some retailers prohibit scraping. Prefer APIs, affiliate
-  feeds, commodity index providers, or public datasets where available.
-  Retailer-site scraping is a last resort and needs rate-limiting plus UA
-  identification.
+- **ASSEMBLIES** — composed pricing (e.g. New 110v Outlet = wire + box +
+  receptacle + plate + breaker + rough-in labor + trim-out labor + 20%
+  O&P). This is how a per-EA price for a complete task gets built. Our
+  estimator has no concept of this yet.
+- **MARKET INDEX** — weekly commodity-price tracker. Already scaffolded
+  for the scraping future-me thought we'd have to design.
+- **BENCHMARKS** — $/SF Low/Mid/High per building system. Populated as
+  MATERIALS grows.
+- **SOURCE LOG** — 92 rows. Every invoice indexed with file path, Cost
+  Type, and "entered into master table?" flag. Auditable.
+- **Confidence** column (HIGH/MED/LOW) on every cost row. We should
+  mirror this concept when we start surfacing TLP-cost-derived allowances.
 
 ---
 
-## Phase 5 — Trend analysis + forward projection
+## Phase 2 — The meeting point
 
-This is the "badass" layer Wayne described. Also the hardest to get right.
+This is the phase where the two systems need to talk. Architecturally the
+most important phase, because everything downstream depends on the
+contract between Wayne's data and ours.
 
-### Increase/decrease with a cushion
+### Goals
 
-Concept: prices can go up quickly but should come down slowly. Asymmetric
-smoothing protects margin.
+- Move `pricing.json` behind a real backend (Cloudflare Worker + D1).
+- **Effective-dated rates** — every saved bid locks to the pricing row that
+  existed when the bid was created. Wayne's Flex Rules never retroactively
+  change a signed contract.
+- Admin UI behind auth for editing allowances without touching Excel.
+- Split `index.html` → `index.html + app.js + styles.css` so the frontend
+  is maintainable.
 
-- Rolling window (probably 90 days).
-- Price goes up: apply immediately (up to a cap per cycle to avoid shocks).
-- Price goes down: apply only after sustained movement (e.g. 60 days below
-  the current rate by >5%). A "cushion" threshold Wayne tunes.
-- Never let a single data point move the rate. Always require multiple
-  observations from independent sources before acting.
+### The cross-system question
 
-### 3-month forward projection
+**How does Wayne's cost data become a customer-allowance tier rate?**
+This is not obvious and is not yet designed.
 
-Concept: the estimate is written today, but the material gets bought in 3
-months. Use the forward price, not the current price.
+Some categories have a natural mapping:
+- `tlp-can-6` (TLP-supplied 6" recessed can) → MATERIALS tab row for a
+  recessed can + LABOR tab row for rough-in/trim-out → ASSEMBLY row →
+  per-EA price. That's the T-all rate (same across tiers, `tlpFixed`).
+- `floor-hardwood` T1 → actual-paid hardwood + actual-paid installation
+  labor, averaged across recent Kupin-tier jobs.
 
-- For tracked commodities with futures markets (lumber, copper, steel,
-  aluminum, natural gas), read the 3-month forward directly from a futures
-  feed. This is the clean path.
-- For items without futures markets (most finished goods), the simplest
-  approach is an empirical lead-indicator: if commodity X moved Y% over the
-  last 90 days and finished-good Z historically follows X with a lag, roll Z
-  forward by the expected lag-adjusted delta.
-- **Don't confuse "forecast" with "truth."** Always show the estimator the
-  raw current price *and* the projected price so they know how much of the
-  rate is model output. Never hide the projection logic.
+Other categories don't map:
+- `light-chandelier-low` → Home Depot retail price for a $135 chandelier.
+  This is a customer-allowance guess, not a TLP cost. T1–T4 are quality
+  tiers defined by the retail price bands Wayne targets — not by what TLP
+  pays.
 
-### Risks
+The bridge is probably **different strategies per Cost Type**:
+- `Materials + Both`-backed categories → pull from Wayne's actual-paid,
+  post-Flex, post-Fluff price.
+- Pure customer-allowance categories → stay in our spreadsheet, possibly
+  with Phase 5 scraping for market refresh.
+- `Labor`-dominant categories (framing, trim, drywall) → not in the
+  current `pricing.json` at all, because the estimator currently prices
+  fixtures/finishes not scopes-of-work.
 
-- Commodity prediction is a humbling problem. Building our own model is
-  likely not worth it — prefer off-the-shelf forward prices or
-  expert-published indices (ENR, RSMeans).
-- Over-tuning the cushion / projection math to past data risks the classic
-  backtest trap: looks great on history, breaks on live data.
-- If scraping and prediction are on the critical path of estimating, a
-  broken scraper can silently poison estimates. Build a manual override and
-  a "pricing table is stale / unhealthy" UI signal before turning automation
-  on.
+**Deliverable for Phase 2 design:** a per-category table declaring
+(a) data source (Wayne / spreadsheet / scrape), (b) refresh cadence,
+(c) Flex Rule eligibility, (d) tier derivation method. Then build once.
+
+### Coordination with Cody
+
+Two AIs on one business. Minimal viable boundary:
+
+- **Cody owns** MATERIALS, LABOR, ASSEMBLIES, MASTER PRICING TABLE, SOURCE
+  LOG, MARKET INDEX. He writes the flex logic, runs the weekly scraper,
+  handles invoice ingestion.
+- **We own** `pricing.json`, `index.html`, the customer-facing flow,
+  saved bids, and (Phase 2) the backend admin UI.
+- **Interface** (to design): Cody publishes a read-only artifact —
+  probably a JSON or CSV snapshot from his workbook, delivered via
+  GitHub commit to a branch we can read, or via API. Our backend
+  consumes it. No direct write-back from us to Wayne's workbook.
+
+We should talk to Wayne (and through him, Cody) before finalizing this
+contract. Premature design here costs us.
 
 ---
 
-## What we are explicitly NOT building yet
+## Phase 3 — TLP-cost-derived allowances (depends on Phase 2)
 
-- No scraping, no ML, no futures feeds during Phase 1 or Phase 2.
-- No appliance-category pricing until we have either real job data (Phase 3)
-  or a trustworthy data source for customer-allowance defaults (Phase 4).
-  For now appliance `t1..t5` stay `null` in `pricing.json`.
-- No separate mobile app. Responsive-friendly `index.html` covers the field
-  use case for now.
+Once Cody publishes a stable artifact from Wayne's workbook, wire
+specific `pricing.json` categories to pull from it.
+
+- Start with the highest-confidence, highest-coverage categories — likely
+  `tlp-*` (TLP-supplied electrical, already flat-rate), then materials
+  Wayne has real historical data for.
+- Keep manual override capability. If Cody's rollup produces a weird
+  number, the admin UI lets us pin a rate until the upstream is fixed.
+- Surface Confidence in the UI. "This rate is HIGH-confidence, derived
+  from 12 invoices over 6 months" reads different from "This rate is a
+  LOW-confidence retail-price guess."
 
 ---
 
-## Dependencies / order of operations
+## Phase 4 — Allowance scraping (largely Cody's territory)
+
+Wayne's MARKET INDEX is already scaffolded. The work here is:
+
+1. Cody fills in the sources (Home Depot API, Menards, Builders FirstSource,
+   commodity indices for lumber/copper/steel).
+2. The weekly script runs, Flex Rules apply, adjusted prices flow into the
+   published artifact.
+3. We consume the artifact (per Phase 3 wiring).
+
+Our responsibility: don't let a broken scraper silently poison estimates.
+Show estimators a freshness indicator ("last refreshed 3 days ago — OK"
+vs "last refreshed 23 days ago — stale, get a live quote"). Show a
+COVID-alert banner when Cody's workbook flags a lock-in window <14 days.
+
+---
+
+## Phase 5 — Forward projection (Wayne's Flex Rule 5)
+
+Already specified: 3 consecutive months of price increases → add
+`trend% × months_until_start` to the current price.
+
+Our job on the estimator side is **presentation**:
+- Show both the current price and the projected price.
+- Explain which rule applied ("Rule 5 Forward: lumber up 12% over 3mo,
+  project starts in 2mo, adding 8% to this estimate").
+- Let the estimator override with live quotes for any affected line.
+
+---
+
+## What we are explicitly NOT building
+
+- No separate scraping infrastructure. Cody handles that on Wayne's side.
+- No ML price prediction model. Flex Rule 5's linear projection is enough
+  for now, and futures markets / ENR / RSMeans indices are better sources
+  than home-rolled ML for categories where we need a forecast.
+- No appliance pricing until Wayne has real data for it. For now
+  appliance `t1..t5` remain `null` in `pricing.json`.
+- No bid/contract/actual tracking yet — Phase 2's scope — and even then
+  only the bid side. Actuals live in Wayne's workbook, not ours.
+
+---
+
+## Dependencies
 
 ```
-  Phase 1 (done)  →  Phase 2  →  Phase 3
-                                    ↓
-                               Phase 4  →  Phase 5
+  Phase 1 (done)  →  Phase 2 (meeting point)  →  Phase 3 (wire categories)
+                           ↑                           ↓
+                   Cody's work              Phase 4 (freshness UI)
+                                                       ↓
+                                            Phase 5 (projection UI)
 ```
 
-- Phase 3 (TLP cost data) depends on Phase 2's effective-dated schema.
-- Phase 4 (scraping) depends on Phase 2's storage + Phase 3's category split
-  between TLP-cost and customer-allowance rows.
-- Phase 5 (prediction) depends on Phase 4's time-series of observations.
+Phase 2 blocks everything. Before we touch Phase 2 code, we need a
+conversation with Wayne about:
+1. What artifact Cody can reliably publish from his workbook (and where).
+2. Which of the 79 categories he has real cost data for vs. which remain
+   customer-allowance guesses.
+3. Whether our admin UI should also be able to write back to influence
+   his workbook (probably no, one-way is simpler and safer).
 
-Each phase should land as its own set of small atomic commits, with
-round-trip or behavioral tests preventing regressions in the phases before
-it. Same rules as Phase 1.
+---
+
+## Terminology note
+
+Wayne's workbook is called "TLP MASTER PRICING TABLE" and has an internal
+sheet of the same name. We originally extracted the inline JS object as
+`MASTER_PRICING` from `index.html`. Same name, different things. Worth
+renaming ours — likely `ALLOWANCE_PRICING` — in a future commit, along
+with the JSON file. Low priority; tracked as a cleanup task rather than
+a phase.
